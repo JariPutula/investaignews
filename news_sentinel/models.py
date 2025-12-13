@@ -41,12 +41,14 @@ class ImpactfulHeadline(BaseModel):
     date: Optional[str] = Field(default=None, description="Formatted date string")
     url: str
     why_it_matters: str = Field(description="Short explanation of why this news matters")
-    ticker: str
+    ticker: Optional[str] = Field(default=None, description="Ticker symbol (can be inferred from parent)")
 
     @field_validator("ticker")
     @classmethod
-    def validate_ticker(cls, v: str) -> str:
-        """Normalize ticker to uppercase."""
+    def validate_ticker(cls, v: Optional[str]) -> Optional[str]:
+        """Normalize ticker to uppercase if provided."""
+        if v is None:
+            return None
         return v.upper().strip()
 
 
@@ -157,7 +159,7 @@ def get_news_analysis_json_schema() -> str:
             "items": {"type": "string"},
             "description": "Key themes identified: e.g., ['earnings', 'guidance change', 'M&A', 'share buyback', 'dividend', 'lawsuit', 'downgrade', 'macro/regulation']"
           },
-          "impactful_headlines": {
+                "impactful_headlines": {
             "type": "array",
             "minItems": 3,
             "maxItems": 5,
@@ -173,6 +175,10 @@ def get_news_analysis_json_schema() -> str:
                 "why_it_matters": {
                   "type": "string",
                   "description": "Short explanation (1-2 sentences) of why this news matters for investors"
+                },
+                "ticker": {
+                  "type": "string",
+                  "description": "Ticker symbol for this headline (should match the parent ticker_sentiment ticker). This field is optional but recommended."
                 }
               }
             }

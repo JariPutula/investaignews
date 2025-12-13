@@ -40,7 +40,7 @@ GEOGRAPHY_KEYWORDS = {
         'etf_patterns': []
     },
     'Europe/Global': {
-        'keywords': [],
+        'keywords': ['BAE SYSTEMS', 'BAE', 'IPSEN'],
         'company_suffixes': ['PLC', 'SA', 'SPA', 'AS', 'ABP', 'AB', 'AG', 'SE', 'NV'],
         'etf_patterns': ['EMU', 'EUROPE', 'EURO', 'EMERGING', 'WORLD', 'GLOBAL', 'ALLWORLD']
     }
@@ -129,6 +129,10 @@ def classify_geography(name):
         return 'Finland'
     if any(suffix in name_upper for suffix in GEOGRAPHY_KEYWORDS['Finland']['company_suffixes']):
         return 'Finland'
+    
+    # Check Europe/Global keywords (before US, to avoid conflicts)
+    if any(keyword in name_upper for keyword in GEOGRAPHY_KEYWORDS['Europe/Global']['keywords']):
+        return 'Europe/Global'
     
     # Check European company suffixes (before US, to avoid conflicts)
     if any(suffix in name_upper for suffix in GEOGRAPHY_KEYWORDS['Europe/Global']['company_suffixes']):

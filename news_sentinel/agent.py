@@ -216,6 +216,13 @@ Instructions:
         try:
             result = NewsAnalysisResult.model_validate(data)
             
+            # Post-process: populate missing ticker fields in headlines from parent ticker_sentiment
+            for ticker_sentiment in result.ticker_sentiments:
+                parent_ticker = ticker_sentiment.ticker
+                for headline in ticker_sentiment.impactful_headlines:
+                    if headline.ticker is None:
+                        headline.ticker = parent_ticker
+            
             # Ensure all tickers are represented (add neutral sentiment if missing)
             ticker_set = set(tickers)
             existing_tickers = {ts.ticker for ts in result.ticker_sentiments}
@@ -254,12 +261,43 @@ Instructions:
                     )
                     
                     if ticker_info:
+                        # Fix missing ticker fields in headlines
+                        if "impactful_headlines" in ticker_info:
+                            for headline in ticker_info["impactful_headlines"]:
+                                if "ticker" not in headline or headline.get("ticker") is None:
+                                    headline["ticker"] = ticker
+                        
                         # Try to validate as TickerSentiment
                         try:
                             from news_sentinel.models import TickerSentiment
-                            ticker_sentiments.append(TickerSentiment.model_validate(ticker_info))
-                        except Exception:
-                            ticker_sentiments.append(ticker_info)  # Let Pydantic handle it
+                            ticker_sentiment = TickerSentiment.model_validate(ticker_info)
+                            # Post-process: ensure all headlines have ticker
+                            for headline in ticker_sentiment.impactful_headlines:
+                                if headline.ticker is None:
+                                    headline.ticker = ticker
+                            ticker_sentiments.append(ticker_sentiment)
+                        except Exception as validation_error:
+                            # If validation fails, create a minimal valid entry
+                            from news_sentinel.models import TickerSentiment, ImpactfulHeadline
+                            fixed_headlines = []
+                            if "impactful_headlines" in ticker_info:
+                                for h in ticker_info["impactful_headlines"]:
+                                    try:
+                                        h["ticker"] = h.get("ticker") or ticker
+                                        fixed_headlines.append(ImpactfulHeadline.model_validate(h))
+                                    except Exception:
+                                        pass  # Skip invalid headlines
+                            
+                            ticker_sentiments.append(
+                                TickerSentiment(
+                                    ticker=ticker,
+                                    sentiment_label=ticker_info.get("sentiment_label", "neutral"),
+                                    sentiment_score=float(ticker_info.get("sentiment_score", 0.0)),
+                                    summary=ticker_info.get("summary", "Analysis incomplete."),
+                                    key_themes=ticker_info.get("key_themes", []),
+                                    impactful_headlines=fixed_headlines,
+                                )
+                            )
                     else:
                         from news_sentinel.models import TickerSentiment
                         ticker_sentiments.append(
@@ -273,12 +311,21 @@ Instructions:
                             )
                         )
                 
-                return NewsAnalysisResult(
+                result = NewsAnalysisResult(
                     overall_summary=overall_summary,
                     overall_sentiment_score=overall_sentiment_score,
                     ticker_sentiments=ticker_sentiments,
                     article_counts=data.get("article_counts", {"positive": 0, "negative": 0, "neutral": 0}),
                 )
+                
+                # Final post-process: ensure all headlines have ticker
+                for ticker_sentiment in result.ticker_sentiments:
+                    parent_ticker = ticker_sentiment.ticker
+                    for headline in ticker_sentiment.impactful_headlines:
+                        if headline.ticker is None:
+                            headline.ticker = parent_ticker
+                
+                return result
             except Exception as fallback_error:
                 raise RuntimeError(
                     f"Failed to parse OpenAI response and fallback failed: {e}. Fallback error: {fallback_error}"
