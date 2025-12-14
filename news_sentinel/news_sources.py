@@ -6,8 +6,11 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from news_sentinel.models import NewsArticle
 from news_sentinel.config import get_tavily_api_key
+from news_sentinel.logger import get_logger
+from news_sentinel.models import NewsArticle
+
+logger = get_logger("news_sentinel.news_sources")
 
 
 class NewsSearchBackend(ABC):
@@ -112,10 +115,12 @@ class TavilySearchBackend(NewsSearchBackend):
                         backend="tavily",
                     )
                     articles.append(article)
+                
+                logger.debug(f"[Tavily] Processed {len([a for a in articles if a.ticker == ticker])} articles for {ticker}")
                     
             except Exception as e:
                 # Log error but continue with other tickers
-                print(f"Error fetching news for {ticker} with Tavily: {e}")
+                logger.error(f"[Tavily] Error fetching news for {ticker}: {e}", exc_info=True)
                 continue
         
         return articles
@@ -186,10 +191,12 @@ class DuckDuckGoSearchBackend(NewsSearchBackend):
                         backend="duckduckgo",
                     )
                     articles.append(article)
+                
+                logger.debug(f"[DuckDuckGo] Processed {len([a for a in articles if a.ticker == ticker])} articles for {ticker}")
                     
             except Exception as e:
                 # Log error but continue with other tickers
-                print(f"Error fetching news for {ticker} with DuckDuckGo: {e}")
+                logger.error(f"[DuckDuckGo] Error fetching news for {ticker}: {e}", exc_info=True)
                 continue
         
         return articles

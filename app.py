@@ -1537,6 +1537,13 @@ with tab5:
                 help="Maximum number of articles to fetch per ticker"
             )
     
+    # Logging toggle
+    show_logs = st.checkbox(
+        "Show detailed logs",
+        value=False,
+        help="Enable to see detailed logging of agent operations"
+    )
+    
     # API Key input (optional, will use env/secrets if not provided)
     with st.expander("OpenAI Configuration", expanded=False):
         api_key_input = st.text_input(
@@ -1577,6 +1584,21 @@ with tab5:
             st.error(f"Failed to initialize News Sentinel Agent: {e}")
             st.stop()
         
+        # Set up logging if enabled
+        if show_logs:
+            # Clear log buffer before starting
+            from news_sentinel.logger import clear_log_buffer, setup_logger
+            import logging
+            clear_log_buffer()
+            
+            # Set up logger (will capture to buffer)
+            setup_logger(
+                name="news_sentinel",
+                level=logging.INFO,
+                streamlit_container=None,  # We'll display from buffer after
+                enable_console=True
+            )
+        
         # Process with spinner
         with st.spinner(f"Fetching and analyzing news for {', '.join(tickers)}..."):
             try:
@@ -1593,6 +1615,16 @@ with tab5:
                     api_key: str,
                 ):
                     """Cached analysis function."""
+                    # Set up logger (will capture to buffer)
+                    from news_sentinel.logger import setup_logger
+                    import logging
+                    setup_logger(
+                        name="news_sentinel",
+                        level=logging.INFO,
+                        streamlit_container=None,  # Buffer only
+                        enable_console=True
+                    )
+                    
                     agent = NewsSentinelAgent(openai_api_key=api_key)
                     return agent.analyze(
                         tickers=list(ticker_list),
@@ -1609,6 +1641,30 @@ with tab5:
                     max_articles=max_articles_per_ticker,
                     api_key=api_key,
                 )
+                
+                # Display logs if enabled
+                if show_logs:
+                    from news_sentinel.logger import get_logs
+                    logs = get_logs()
+                    
+                    if logs:
+                        with st.expander("📋 Agent Logs", expanded=True):
+                            st.info(f"Captured {len(logs)} log entries:")
+                            for log_entry in logs:
+                                level = log_entry['level']
+                                msg = log_entry['message']
+                                
+                                if level >= logging.ERROR:
+                                    st.error(f"🔴 {msg}")
+                                elif level >= logging.WARNING:
+                                    st.warning(f"⚠️ {msg}")
+                                elif level >= logging.INFO:
+                                    st.info(f"ℹ️ {msg}")
+                                else:  # DEBUG
+                                    st.text(f"🔍 {msg}")
+                    else:
+                        with st.expander("📋 Agent Logs", expanded=False):
+                            st.info("No logs captured. This may be due to caching. Try clearing the cache or running again.")
                 
             except Exception as e:
                 st.error(f"Error during analysis: {e}")

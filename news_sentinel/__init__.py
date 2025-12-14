@@ -3,6 +3,7 @@ News Sentinel Agent - A modular news analysis system for investment dashboards.
 """
 
 from news_sentinel.agent import NewsSentinelAgent
+from news_sentinel.logger import get_logger, setup_logger
 from news_sentinel.models import (
     NewsArticle,
     ImpactfulHeadline,
@@ -16,5 +17,7 @@ __all__ = [
     "ImpactfulHeadline",
     "TickerSentiment",
     "NewsAnalysisResult",
+    "get_logger",
+    "setup_logger",
 ]
 

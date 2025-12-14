@@ -44,7 +44,7 @@ def get_openai_model_name() -> str:
     Returns:
         Model name (default: "gpt-4o-mini")
     """
-    return os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
+    return os.getenv("OPENAI_MODEL_NAME", "gpt-4o")
 
 
 def get_tavily_api_key() -> Optional[str]:
