@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 import warnings
 import os
+import time
 
 # Debug container for correlation diagnostics
 CORR_DEBUG = {}
@@ -1013,17 +1014,55 @@ with tab2:
                 index=0
             )
 
+        # Streaming option: simulate progressively rendering the AI output
+        streaming_output = st.checkbox(
+            "Stream AI output (simulate typing)",
+            value=False,
+            help="Display AI suggestions gradually as they arrive (simulated)."
+        )
+
         # If user provides a key here, prefer it for this session
         if api_key_input:
             os.environ["OPENAI_API_KEY"] = api_key_input
 
         if st.button("Generate AI Suggestions", type="primary"):
-            with st.spinner("Generating AI suggestions..."):
-                ai_text, ai_err = generate_ai_suggestions(df, user_goals, risk_profile, model_name=model_name)
-                if ai_err:
-                    st.error(ai_err)
+            # Progress UI elements (avoid using global spinner which grays out the whole app)
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            # Step 1: prepare context
+            status_text.info("Preparing portfolio context for the AI...")
+            progress_bar.progress(20)
+
+            # Step 2: call the AI (this may take a while)
+            status_text.info("Calling OpenAI and waiting for the response...")
+            progress_bar.progress(50)
+
+            ai_text, ai_err = generate_ai_suggestions(df, user_goals, risk_profile, model_name=model_name)
+
+            # Step 3: render results
+            progress_bar.progress(100)
+            if ai_err:
+                status_text.error("OpenAI returned an error.")
+                st.error(ai_err)
+            else:
+                # Optionally stream the AI output to make the UI feel more responsive
+                if streaming_output and ai_text:
+                    status_text.info("Streaming AI output...")
+                    container = st.empty()
+                    # Render in chunks to simulate streaming
+                    chunk_size = 120
+                    for i in range(0, len(ai_text), chunk_size):
+                        chunk = ai_text[: i + chunk_size]
+                        container.markdown(chunk)
+                        time.sleep(0.04)
+                    status_text.success("AI suggestions generated successfully.")
                 else:
+                    status_text.success("AI suggestions generated successfully.")
                     st.markdown(ai_text)
+
+            # Keep final status visible but remove the progress bar to avoid clutter
+            progress_bar.empty()
 
 with tab3:
     st.header("⚖️ Portfolio Rebalancing Calculator")
