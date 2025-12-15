@@ -6,9 +6,6 @@ import numpy as np
 import warnings
 import os
 
-# Debug container for correlation diagnostics
-CORR_DEBUG = {}
-
 # Page configuration
 st.set_page_config(
     page_title="Portfolio Analytics Dashboard",
@@ -392,166 +389,31 @@ def calculate_correlation_matrix(df):
     Returns:
     - Correlation matrix DataFrame
     """
-    # Try to compute Pearson correlations from historical returns when tickers exist.
-    # Fall back to a simple sector/geography proxy for missing tickers or failures.
+    # For now, we'll create a simplified correlation based on sector/geography
+    # In a real implementation, you'd use historical returns
     holdings = df[['name', 'change_pct', 'sector', 'geography']].copy()
-    # Optional overrides for mapping holding name -> yfinance ticker
-    TICKER_OVERRIDES = {
-        'ABBVIE': 'ABBV',
-        'ALPHABET': 'GOOG',
-        'AMAZON': 'AMZN',
-        'MICROSOFT': 'MSFT',
-        'QUALCOMM': 'QCOM',
-        'PFIZER': 'PFE',
-        'MERCK': 'MRK',
-        'NOKIA': 'NOK',
-        'TESLA': 'TSLA',
-        'WALT DISNEY': 'DIS',
-    }
-
-    def infer_ticker(name):
-        # Use explicit ticker column if present
-        if 'ticker' in df.columns:
-            row = df[df['name'] == name]
-            if not row.empty:
-                val = row.iloc[0].get('ticker')
-                if pd.notna(val):
-                    s = str(val).strip()
-                    if s == '' or s.upper() in ['NONE', 'N/A', 'NA', 'UNKNOWN']:
-                        return None
-                    return s
-
-        name_up = str(name).upper()
-        for key, val in TICKER_OVERRIDES.items():
-            if key in name_up:
-                return val
-
-        return None
-
-    name_to_ticker = {name: infer_ticker(name) for name in holdings['name']}
-    tickers = [t for t in set(name_to_ticker.values()) if t]
-
-    @st.cache_data(ttl=60 * 60 * 24)
-    def fetch_prices(tickers_list, period='1y', interval='1d'):
-        try:
-            import yfinance as yf
-        except Exception:
-            return pd.DataFrame()
-
-        success = []
-        failed = []
-        series_list = []
-
-        for t in tickers_list:
-            try:
-                data = yf.download(t, period=period, interval=interval, progress=False, threads=False)
-                if data is None or data.empty:
-                    failed.append(t)
-                    continue
-
-                # Prefer 'Adj Close'
-                if 'Adj Close' in data:
-                    s = data['Adj Close']
-                else:
-                    # Fallback to first numeric column
-                    s = data.iloc[:, 0]
-
-                # Ensure Series and name it by ticker
-                if isinstance(s, pd.Series):
-                    s = s.rename(t)
-                    series_list.append(s)
-                    success.append(t)
-                else:
-                    failed.append(t)
-            except Exception:
-                failed.append(t)
-
-        if len(series_list) == 0:
-            CORR_DEBUG['fetch_success'] = success
-            CORR_DEBUG['fetch_failed'] = failed
-            return pd.DataFrame()
-
-        prices = pd.concat(series_list, axis=1)
-        CORR_DEBUG['fetch_success'] = success
-        CORR_DEBUG['fetch_failed'] = failed
-        return prices
-
-    corr_df = None
-    if len(tickers) >= 2:
-        prices = fetch_prices(tickers, period='1y', interval='1d')
-        if not prices.empty:
-            returns = prices.pct_change().dropna(how='all')
-            try:
-                # Filter out tickers with insufficient return observations
-                min_returns = 50
-                counts = returns.count()
-                good_tickers = counts[counts >= min_returns].index.tolist()
-                excluded = [c for c in returns.columns if c not in good_tickers]
-                CORR_DEBUG['returns_count'] = counts.to_dict()
-                CORR_DEBUG['excluded_due_to_insufficient_data'] = excluded
-
-                if len(good_tickers) >= 2:
-                    returns_filtered = returns[good_tickers]
-                    corr_df = returns_filtered.corr()
-                else:
-                    corr_df = None
-            except Exception:
-                corr_df = None
-
-    # Store debug info in module-level container for display in the UI
-    try:
-        CORR_DEBUG['detected_tickers'] = tickers
-        CORR_DEBUG['tickers_with_price_data'] = list(corr_df.columns) if corr_df is not None else []
-    except Exception:
-        CORR_DEBUG['detected_tickers'] = []
-        CORR_DEBUG['tickers_with_price_data'] = []
-
-    # Only include holdings with valid tickers (exclude unmapped ones)
-    valid_holdings_indices = [i for i, name in enumerate(holdings['name']) if name_to_ticker.get(name) is not None]
-    valid_holdings = holdings.iloc[valid_holdings_indices].reset_index(drop=True)
     
-    CORR_DEBUG['excluded_unmapped_holdings'] = [holdings.iloc[i]['name'] for i in range(len(holdings)) if i not in valid_holdings_indices]
-
+    # Create correlation matrix based on sector and geography similarity
+    # This is a proxy - real correlation would use historical returns
     correlation_data = []
-    for i, row1 in valid_holdings.iterrows():
+    
+    for i, row1 in holdings.iterrows():
         row_correlations = []
-        for j, row2 in valid_holdings.iterrows():
+        for j, row2 in holdings.iterrows():
             if i == j:
                 corr = 1.0
             else:
-                name1 = row1['name']
-                name2 = row2['name']
-                t1 = name_to_ticker.get(name1)
-                t2 = name_to_ticker.get(name2)
-
-                used_real = False
-                if corr_df is not None and t1 in corr_df.columns and t2 in corr_df.columns:
-                    try:
-                        corr = float(corr_df.loc[t1, t2])
-                        if pd.isna(corr):
-                            raise ValueError
-                        used_real = True
-                    except Exception:
-                        corr = None
-
-                if not used_real:
-                    # This should not happen now, but keep as fallback
-                    sector_match = 1.0 if row1['sector'] == row2['sector'] else 0.3
-                    geo_match = 1.0 if row1['geography'] == row2['geography'] else 0.5
-                    corr = (sector_match + geo_match) / 2
-
-            try:
-                corr = max(-1.0, min(1.0, float(corr)))
-            except Exception:
-                corr = 0.0
-
+                # Simple correlation proxy based on sector and geography
+                sector_match = 1.0 if row1['sector'] == row2['sector'] else 0.3
+                geo_match = 1.0 if row1['geography'] == row2['geography'] else 0.5
+                corr = (sector_match + geo_match) / 2
             row_correlations.append(corr)
         correlation_data.append(row_correlations)
-
+    
     corr_matrix = pd.DataFrame(
         correlation_data,
-        index=valid_holdings['name'],
-        columns=valid_holdings['name']
+        index=holdings['name'],
+        columns=holdings['name']
     )
     
     return corr_matrix
@@ -1464,22 +1326,6 @@ with tab4:
     
     # Calculate correlation matrix
     corr_matrix = calculate_correlation_matrix(df)
-    # Show debug diagnostics about ticker detection / price fetch
-    try:
-        dbg = CORR_DEBUG
-        with st.expander("Correlation debug info", expanded=False):
-            for key, val in dbg.items():
-                if isinstance(val, list) and len(val) > 20:
-                    st.write(f"**{key}** ({len(val)} items): {val[:5]} ... {val[-5:]}")
-                elif isinstance(val, dict):
-                    st.write(f"**{key}**: {len(val)} entries")
-                    with st.expander(f"  Show {key}"):
-                        for k, v in val.items():
-                            st.write(f"  {k}: {v}")
-                else:
-                    st.write(f"**{key}**: {val}")
-    except Exception as e:
-        st.write(f"Debug error: {e}")
     
     # Create heatmap
     fig_corr = go.Figure(data=go.Heatmap(
