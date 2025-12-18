@@ -7,6 +7,17 @@ import warnings
 import os
 import time
 
+# Import portfolio calculation modules
+from portfolio import (
+    calculate_performance_metrics,
+    calculate_rebalancing,
+    calculate_sharpe_ratio,
+    calculate_sortino_ratio,
+    calculate_max_drawdown,
+    calculate_var,
+    calculate_portfolio_risk_metrics,
+)
+
 # Debug container for correlation diagnostics
 CORR_DEBUG = {}
 
@@ -217,168 +228,8 @@ def load_data():
     df = df.fillna(0)
     return df
 
-def calculate_performance_metrics(df):
-    """Calculate overall portfolio performance metrics"""
-    total_market_value = df['market_total_eur'].sum()
-    total_purchase_value = df['purchase_total_eur'].sum()
-    total_unrealized_gain = df['change_eur'].sum()
-    
-    if total_purchase_value > 0:
-        overall_performance_pct = (total_unrealized_gain / total_purchase_value) * 100
-    else:
-        overall_performance_pct = 0
-    
-    return {
-        'total_market_value': total_market_value,
-        'total_unrealized_gain': total_unrealized_gain,
-        'overall_performance_pct': overall_performance_pct
-    }
-
-def calculate_rebalancing(df, target_allocations, transaction_cost_pct=0.0, tax_rate=0.30):
-    """
-    Calculate rebalancing recommendations
-    
-    Parameters:
-    - df: DataFrame with holdings data
-    - target_allocations: dict with target percentages (e.g., {'Technology': 20, 'Healthcare': 15})
-    - transaction_cost_pct: Transaction cost as percentage (default 0%)
-    - tax_rate: Capital gains tax rate (default 30% for Finland)
-    
-    Returns:
-    - DataFrame with rebalancing recommendations
-    """
-    total_value = df['market_total_eur'].sum()
-    
-    # Calculate current allocations by sector
-    current_allocations = df.groupby('sector')['market_total_eur'].sum() / total_value * 100
-    
-    # Create rebalancing DataFrame
-    rebalancing_data = []
-    
-    for sector, target_pct in target_allocations.items():
-        current_pct = current_allocations.get(sector, 0)
-        current_value = df[df['sector'] == sector]['market_total_eur'].sum()
-        target_value = (target_pct / 100) * total_value
-        difference = target_value - current_value
-        
-        # Calculate transaction costs
-        transaction_cost = abs(difference) * (transaction_cost_pct / 100)
-        
-        # Calculate tax implications (only for selling)
-        tax_implication = 0
-        if difference < 0:  # Selling
-            # Estimate capital gains on sold portion
-            sector_df = df[df['sector'] == sector].copy()
-            if len(sector_df) > 0:
-                # Calculate average gain percentage for this sector
-                sector_gain_pct = (sector_df['change_eur'].sum() / sector_df['purchase_total_eur'].sum()) * 100 if sector_df['purchase_total_eur'].sum() > 0 else 0
-                # Estimate capital gains on the amount being sold
-                sold_pct = abs(difference) / current_value if current_value > 0 else 0
-                estimated_gain = sector_df['change_eur'].sum() * sold_pct
-                tax_implication = max(0, estimated_gain * tax_rate)  # Only tax on gains
-        
-        rebalancing_data.append({
-            'sector': sector,
-            'current_%': round(current_pct, 2),
-            'target_%': target_pct,
-            'current_value_eur': round(current_value, 2),
-            'target_value_eur': round(target_value, 2),
-            'difference_eur': round(difference, 2),
-            'action': 'BUY' if difference > 0 else 'SELL' if difference < 0 else 'HOLD',
-            'transaction_cost_eur': round(transaction_cost, 2),
-            'tax_implication_eur': round(tax_implication, 2),
-            'total_cost_eur': round(transaction_cost + tax_implication, 2)
-        })
-    
-    rebalancing_df = pd.DataFrame(rebalancing_data)
-    rebalancing_df = rebalancing_df.sort_values('difference_eur', key=abs, ascending=False)
-    
-    return rebalancing_df
-
-def calculate_sharpe_ratio(returns, risk_free_rate=0.0, periods_per_year=252):
-    """
-    Calculate Sharpe Ratio
-    
-    Parameters:
-    - returns: array of portfolio returns
-    - risk_free_rate: annual risk-free rate (default 0%)
-    - periods_per_year: number of periods per year (252 for daily, 12 for monthly)
-    
-    Returns:
-    - Sharpe ratio
-    """
-    if len(returns) == 0 or np.std(returns) == 0:
-        return 0.0
-    
-    excess_returns = returns - (risk_free_rate / periods_per_year)
-    sharpe = np.sqrt(periods_per_year) * np.mean(excess_returns) / np.std(returns)
-    return sharpe
-
-def calculate_sortino_ratio(returns, risk_free_rate=0.0, periods_per_year=252):
-    """
-    Calculate Sortino Ratio (downside risk-adjusted returns)
-    
-    Parameters:
-    - returns: array of portfolio returns
-    - risk_free_rate: annual risk-free rate (default 0%)
-    - periods_per_year: number of periods per year
-    
-    Returns:
-    - Sortino ratio
-    """
-    if len(returns) == 0:
-        return 0.0
-    
-    excess_returns = returns - (risk_free_rate / periods_per_year)
-    downside_returns = returns[returns < 0]
-    
-    if len(downside_returns) == 0 or np.std(downside_returns) == 0:
-        return 0.0
-    
-    sortino = np.sqrt(periods_per_year) * np.mean(excess_returns) / np.std(downside_returns)
-    return sortino
-
-def calculate_max_drawdown(returns):
-    """
-    Calculate Maximum Drawdown
-    
-    Parameters:
-    - returns: array of portfolio returns
-    
-    Returns:
-    - Maximum drawdown as percentage
-    """
-    if len(returns) == 0:
-        return 0.0
-    
-    # Convert to pandas Series if needed
-    if not isinstance(returns, pd.Series):
-        returns = pd.Series(returns)
-    
-    # Calculate cumulative returns
-    cumulative = (1 + returns).cumprod()
-    running_max = cumulative.expanding(min_periods=1).max()
-    drawdown = (cumulative - running_max) / running_max
-    max_drawdown = drawdown.min()
-    
-    return max_drawdown * 100  # Return as percentage
-
-def calculate_var(returns, confidence=0.95):
-    """
-    Calculate Value at Risk (VaR)
-    
-    Parameters:
-    - returns: array of portfolio returns
-    - confidence: confidence level (default 95%)
-    
-    Returns:
-    - VaR as percentage
-    """
-    if len(returns) == 0:
-        return 0.0
-    
-    var = np.percentile(returns, (1 - confidence) * 100)
-    return abs(var) * 100  # Return as positive percentage
+# Performance, rebalancing, and risk metrics functions moved to portfolio/ module
+# Imported at top of file
 
 def calculate_correlation_matrix(df):
     """
@@ -557,63 +408,8 @@ def calculate_correlation_matrix(df):
     
     return corr_matrix
 
-def calculate_portfolio_risk_metrics(df, risk_free_rate=0.0):
-    """
-    Calculate comprehensive portfolio risk metrics
-    
-    Parameters:
-    - df: DataFrame with holdings data
-    - risk_free_rate: annual risk-free rate (default 0%)
-    
-    Returns:
-    - Dictionary with all risk metrics
-    """
-    # Use change_pct as proxy for returns (weighted by portfolio value)
-    total_value = df['market_total_eur'].sum()
-    weights = df['market_total_eur'] / total_value
-    
-    # Portfolio return (weighted average)
-    portfolio_return = (weights * df['change_pct']).sum()
-    
-    # Portfolio volatility (simplified - using weighted standard deviation)
-    portfolio_volatility = np.sqrt(np.sum(weights**2 * df['change_pct'].std()**2))
-    
-    # For metrics that need time series, we'll use the holdings' returns as proxy
-    # In a real implementation, you'd use historical portfolio returns
-    returns_array = df['change_pct'].values / 100  # Convert to decimal
-    
-    # Calculate metrics
-    sharpe = calculate_sharpe_ratio(returns_array, risk_free_rate, periods_per_year=1)
-    sortino = calculate_sortino_ratio(returns_array, risk_free_rate, periods_per_year=1)
-    max_dd = calculate_max_drawdown(returns_array)
-    var_95 = calculate_var(returns_array, confidence=0.95)
-    var_99 = calculate_var(returns_array, confidence=0.99)
-    
-    # Concentration metrics
-    top_5_concentration = df.nlargest(5, 'market_total_eur')['market_total_eur'].sum() / total_value * 100
-    top_10_concentration = df.nlargest(10, 'market_total_eur')['market_total_eur'].sum() / total_value * 100
-    herfindahl_index = np.sum(weights**2) * 10000  # HHI scaled by 10000
-    
-    # Beta (simplified - would need market returns in real implementation)
-    # Using average change_pct as market proxy
-    market_return = df['change_pct'].mean()
-    portfolio_return_avg = portfolio_return
-    # Simplified beta calculation
-    beta = 1.0  # Default, would need historical data for accurate calculation
-    
-    return {
-        'portfolio_return': portfolio_return,
-        'portfolio_volatility': portfolio_volatility,
-        'sharpe_ratio': sharpe,
-        'sortino_ratio': sortino,
-        'max_drawdown': max_dd,
-        'var_95': var_95,
-        'var_99': var_99,
-        'beta': beta,
-        'top_5_concentration': top_5_concentration,
-        'top_10_concentration': top_10_concentration,
-        'herfindahl_index': herfindahl_index
-    }
+# Portfolio risk metrics function moved to portfolio/risk_metrics.py
+# Imported at top of file
 
 # =========================
 # AI Suggestions Utilities
