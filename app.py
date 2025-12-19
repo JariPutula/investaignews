@@ -16,6 +16,11 @@ from portfolio import (
     calculate_max_drawdown,
     calculate_var,
     calculate_portfolio_risk_metrics,
+    load_data,
+    enrich_data,
+    get_unclassified_geography,
+    get_unclassified_sector,
+    reset_unclassified_tracking,
 )
 
 # Debug container for correlation diagnostics
@@ -28,205 +33,11 @@ st.set_page_config(
     layout="wide"
 )
 
-# ============================================================================
-# CLASSIFICATION CONFIGURATION - EASILY EXTENSIBLE
-# ============================================================================
-# When you add new holdings to holdings_from_op.csv that aren't classified:
-# 1. Check the warning section at the top of the dashboard
-# 2. Add the company name or relevant keywords to the appropriate dictionary below
-# 3. Restart the application
-#
-# Structure:
-# - 'keywords': Company names or words that appear in holding names (case-insensitive)
-# - 'company_suffixes': Legal entity suffixes (e.g., 'INC', 'PLC', 'OYJ')
-# - 'etf_patterns': Patterns that appear in ETF/index fund names
-# ============================================================================
-
-GEOGRAPHY_KEYWORDS = {
-    'U.S.': {
-        'keywords': ['USA', 'US', 'AMERIKKA', 'AMERICA', 'NASDAQ', 'NYSE', 'UNITED STATES'],
-        'company_suffixes': ['INC', 'CORP', 'CO', 'COMPANY'],
-        'etf_patterns': ['USA', 'US', 'AMERIKKA']
-    },
-    'Finland': {
-        'keywords': ['DIGIA', 'KOJAMO', 'MANDATUM', 'NOKIA', 'SAMPO', 
-                    'TERVEYSTALO', 'UPM', 'FORTUM', 'ORION', 'NORDEA'],
-        'company_suffixes': ['OYJ'],
-        'etf_patterns': []
-    },
-    'Europe/Global': {
-        'keywords': ['BAE SYSTEMS', 'BAE', 'IPSEN'],
-        'company_suffixes': ['PLC', 'SA', 'SPA', 'AS', 'ABP', 'AB', 'AG', 'SE', 'NV'],
-        'etf_patterns': ['EMU', 'EUROPE', 'EURO', 'EMERGING', 'WORLD', 'GLOBAL', 'ALLWORLD']
-    }
-}
-
-SECTOR_KEYWORDS = {
-    'Technology': {
-        'keywords': ['MICROSOFT', 'ALPHABET', 'AMAZON', 'QUALCOMM', 'NOKIA', 
-                    'DIGIA', 'AUTOMATION', 'ROBOTICS', 'QUANTUM', 'SEMICONDUCTOR',
-                    'APPLE', 'GOOGLE', 'META', 'TESLA', 'NVIDIA', 'INTEL', 'AMD'],
-        'etf_patterns': ['AUTOMATION', 'ROBOTICS', 'QUANTUM', 'SEMICONDUCTOR', 'TECH']
-    },
-    'Healthcare': {
-        'keywords': ['ABBVIE', 'ASTRAZENECA', 'MERCK', 'PFIZER', 'NOVO NORDISK',
-                    'ORION', 'IPSEN', 'ORGANON', 'HEALTHCARE', 'AGEING POPULATION',
-                    'HEALTHCARE INNOVATION', 'TERVEYSTALO', 'JOHNSON', 'BRISTOL',
-                    'ROCHE', 'NOVARTIS', 'SANOFI', 'GLAXOSMITHKLINE'],
-        'etf_patterns': ['HEALTHCARE', 'AGEING', 'PHARMA', 'BIOTECH']
-    },
-    'Financial Services': {
-        'keywords': ['BANCO', 'SANTANDER', 'SAMPO', 'MANDATUM', 'NORDEA', 'BANK',
-                    'JPMORGAN', 'GOLDMAN', 'MORGAN STANLEY', 'WELLS FARGO', 'CITI'],
-        'etf_patterns': ['FINANCIAL', 'BANK', 'INSURANCE']
-    },
-    'Energy/Utilities': {
-        'keywords': ['FORTUM', 'ENEL', 'CLEAN ENERGY', 'UPM', 'EXXON', 'CHEVRON',
-                    'SHELL', 'BP', 'TOTAL', 'EQUINOR'],
-        'etf_patterns': ['ENERGY', 'CLEAN ENERGY', 'UTILITIES', 'OIL', 'GAS']
-    },
-    'Real Estate': {
-        'keywords': ['KOJAMO', 'REIT', 'REAL ESTATE', 'PROPERTY'],
-        'etf_patterns': ['REAL ESTATE', 'PROPERTY', 'REIT']
-    },
-    'Consumer Discretionary': {
-        'keywords': ['WALT DISNEY', 'TELADOC', 'NIKE', 'STARBUCKS', 'MCDONALDS',
-                    'HOME DEPOT', 'LOWES', 'TESLA'],
-        'etf_patterns': ['CONSUMER DISCRETIONARY', 'RETAIL']
-    },
-    'Consumer Staples': {
-        'keywords': ['NESTLE', 'UNILEVER', 'PROCTER', 'GAMBLE', 'COCA COLA', 'PEPSI'],
-        'etf_patterns': ['CONSUMER STAPLES', 'FOOD', 'BEVERAGE']
-    },
-    'Industrials': {
-        'keywords': ['BAE SYSTEMS', 'BROOKFIELD', 'INDUSTRIAL GOODS', 'CATERPILLAR',
-                    'BOEING', 'AIRBUS', 'SIEMENS', 'GE'],
-        'etf_patterns': ['INDUSTRIAL', 'INDUSTRIAL GOODS']
-    },
-    'Materials': {
-        'keywords': ['RIO TINTO', 'BHP', 'BASF', 'DOW', 'DUPONT', 'LINDE'],
-        'etf_patterns': ['MATERIALS', 'BASIC RESOURCES', 'MINING', 'CHEMICALS']
-    },
-    'Communication Services': {
-        'keywords': ['VODAFONE', 'DEUTSCHE TELEKOM', 'TELEFONICA', 'VERIZON', 'AT&T'],
-        'etf_patterns': ['TELECOMMUNICATIONS', 'COMMUNICATION', 'TELECOM']
-    },
-    'Broad Market ETF': {
-        'keywords': [],
-        'etf_patterns': ['MSCI WORLD', 'FTSE ALLWORLD', 'MSCI EM', 'EMERGING MARKETS',
-                        'WIDE MOAT', 'SMALL CAP', 'INDEKSI', 'WORLD', 'MSCI EMU',
-                        'ALL-WORLD', 'TOTAL MARKET', 'GLOBAL INDEX']
-    },
-    'Thematic ETF': {
-        'keywords': [],
-        'etf_patterns': ['AGEING', 'AUTOMATION', 'ROBOTICS', 'CLEAN ENERGY', 'QUANTUM',
-                        'SEMICONDUCTOR', 'HEALTHCARE INNOVATION', 'INDUSTRIAL GOODS',
-                        'ESG', 'SUSTAINABLE', 'DIVIDEND', 'GROWTH', 'VALUE']
-    }
-}
-
-# Track unclassified items
-unclassified_geography = []
-unclassified_sector = []
-
-def classify_geography(name):
-    """Classify holdings by geography with improved pattern matching"""
-    if pd.isna(name):
-        return 'Other'
-    
-    name_upper = str(name).upper()
-    
-    # Check if it's an ETF or index fund
-    is_etf = any(keyword in name_upper for keyword in ['ETF', 'INDEKSI', 'INDEX', 'FUND'])
-    
-    # Check Finland holdings first (most specific)
-    if any(keyword in name_upper for keyword in GEOGRAPHY_KEYWORDS['Finland']['keywords']):
-        return 'Finland'
-    if any(suffix in name_upper for suffix in GEOGRAPHY_KEYWORDS['Finland']['company_suffixes']):
-        return 'Finland'
-    
-    # Check Europe/Global keywords (before US, to avoid conflicts)
-    if any(keyword in name_upper for keyword in GEOGRAPHY_KEYWORDS['Europe/Global']['keywords']):
-        return 'Europe/Global'
-    
-    # Check European company suffixes (before US, to avoid conflicts)
-    if any(suffix in name_upper for suffix in GEOGRAPHY_KEYWORDS['Europe/Global']['company_suffixes']):
-        return 'Europe/Global'
-    
-    # Check US holdings
-    if any(keyword in name_upper for keyword in GEOGRAPHY_KEYWORDS['U.S.']['keywords']):
-        return 'U.S.'
-    if is_etf and any(pattern in name_upper for pattern in GEOGRAPHY_KEYWORDS['U.S.']['etf_patterns']):
-        return 'U.S.'
-    # US company suffixes (INC, CORP, CO, COMPANY) are strong indicators of US companies
-    if any(suffix in name_upper for suffix in GEOGRAPHY_KEYWORDS['U.S.']['company_suffixes']):
-        return 'U.S.'
-    
-    # Check Europe/Global ETFs
-    if is_etf:
-        if any(pattern in name_upper for pattern in GEOGRAPHY_KEYWORDS['Europe/Global']['etf_patterns']):
-            return 'Europe/Global'
-        # Default ETFs to Europe/Global if not clearly US
-        if not any(pattern in name_upper for pattern in GEOGRAPHY_KEYWORDS['U.S.']['etf_patterns']):
-            return 'Europe/Global'
-    
-    # If unclassified, track it
-    if name not in unclassified_geography:
-        unclassified_geography.append(name)
-    
-    return 'Other'
-
-def classify_sector(name):
-    """Classify holdings by sector with improved pattern matching"""
-    if pd.isna(name):
-        return 'Other'
-    
-    name_upper = str(name).upper()
-    is_etf = any(keyword in name_upper for keyword in ['ETF', 'INDEKSI', 'INDEX', 'FUND'])
-    
-    # Check Broad Market ETFs first (before thematic)
-    if is_etf:
-        for pattern in SECTOR_KEYWORDS['Broad Market ETF']['etf_patterns']:
-            if pattern in name_upper:
-                return 'Broad Market ETF'
-    
-    # Check all sectors
-    for sector, config in SECTOR_KEYWORDS.items():
-        if sector in ['Broad Market ETF', 'Thematic ETF']:
-            continue  # Already checked or will check later
-        
-        # Check keywords
-        if any(keyword in name_upper for keyword in config['keywords']):
-            return sector
-        
-        # Check ETF patterns
-        if is_etf and 'etf_patterns' in config:
-            if any(pattern in name_upper for pattern in config['etf_patterns']):
-                return sector
-    
-    # Check Thematic ETFs
-    if is_etf:
-        for pattern in SECTOR_KEYWORDS['Thematic ETF']['etf_patterns']:
-            if pattern in name_upper:
-                return 'Thematic ETF'
-        # Default ETF classification
-        if 'ETF' in name_upper or 'INDEKSI' in name_upper:
-            return 'Thematic ETF'
-    
-    # If unclassified, track it
-    if name not in unclassified_sector:
-        unclassified_sector.append(name)
-    
-    return 'Other'
-
-# Load data
-@st.cache_data
-def load_data():
-    """Load holdings data from CSV"""
-    df = pd.read_csv('holdings_from_op.csv')
-    # Fill NaN values with 0 for calculations
-    df = df.fillna(0)
-    return df
+# Classification configuration and functions moved to:
+# - config.py (GEOGRAPHY_KEYWORDS, SECTOR_KEYWORDS)
+# - portfolio/classification.py (classify_geography, classify_sector)
+# - portfolio/data_loader.py (load_data, enrich_data)
+# Imported at top of file
 
 # Performance, rebalancing, and risk metrics functions moved to portfolio/ module
 # Imported at top of file
@@ -358,16 +169,18 @@ def calculate_correlation_matrix(df):
         CORR_DEBUG['detected_tickers'] = []
         CORR_DEBUG['tickers_with_price_data'] = []
 
-    # Only include holdings with valid tickers (exclude unmapped ones)
+    # Include ALL holdings in correlation matrix
+    # Use real ticker-based correlations when available, fallback to proxy for others
     valid_holdings_indices = [i for i, name in enumerate(holdings['name']) if name_to_ticker.get(name) is not None]
-    valid_holdings = holdings.iloc[valid_holdings_indices].reset_index(drop=True)
-    
     CORR_DEBUG['excluded_unmapped_holdings'] = [holdings.iloc[i]['name'] for i in range(len(holdings)) if i not in valid_holdings_indices]
+    
+    # Use all holdings for the correlation matrix (not just those with tickers)
+    all_holdings = holdings.reset_index(drop=True)
 
     correlation_data = []
-    for i, row1 in valid_holdings.iterrows():
+    for i, row1 in all_holdings.iterrows():
         row_correlations = []
-        for j, row2 in valid_holdings.iterrows():
+        for j, row2 in all_holdings.iterrows():
             if i == j:
                 corr = 1.0
             else:
@@ -377,7 +190,7 @@ def calculate_correlation_matrix(df):
                 t2 = name_to_ticker.get(name2)
 
                 used_real = False
-                if corr_df is not None and t1 in corr_df.columns and t2 in corr_df.columns:
+                if corr_df is not None and t1 is not None and t2 is not None and t1 in corr_df.columns and t2 in corr_df.columns:
                     try:
                         corr = float(corr_df.loc[t1, t2])
                         if pd.isna(corr):
@@ -387,7 +200,7 @@ def calculate_correlation_matrix(df):
                         corr = None
 
                 if not used_real:
-                    # This should not happen now, but keep as fallback
+                    # Fallback: use sector/geography proxy for all holdings without real correlation data
                     sector_match = 1.0 if row1['sector'] == row2['sector'] else 0.3
                     geo_match = 1.0 if row1['geography'] == row2['geography'] else 0.5
                     corr = (sector_match + geo_match) / 2
@@ -399,11 +212,11 @@ def calculate_correlation_matrix(df):
 
             row_correlations.append(corr)
         correlation_data.append(row_correlations)
-
+    
     corr_matrix = pd.DataFrame(
         correlation_data,
-        index=valid_holdings['name'],
-        columns=valid_holdings['name']
+        index=all_holdings['name'],
+        columns=all_holdings['name']
     )
     
     return corr_matrix
@@ -513,41 +326,36 @@ Requirements:
     except Exception as e:
         return None, f"OpenAI error: {e}"
 
-# Load data
+# Load and enrich data
 df = load_data()
-
-# Reset unclassified tracking
-unclassified_geography.clear()
-unclassified_sector.clear()
-
-# Add geography and sector classification
-df['geography'] = df['name'].apply(classify_geography)
-df['sector'] = df['name'].apply(classify_sector)
+df = enrich_data(df)  # Adds geography and sector columns
 
 # Main app
 st.title("📊 Portfolio Analytics Dashboard")
 
 # Display warnings for unclassified items
-if unclassified_geography or unclassified_sector:
+unclassified_geo = get_unclassified_geography()
+unclassified_sect = get_unclassified_sector()
+if unclassified_geo or unclassified_sect:
     with st.expander("⚠️ Classification Warnings - Action Required", expanded=True):
         st.warning("**Some holdings could not be automatically classified. Please review and update the classification rules.**")
         
-        if unclassified_geography:
+        if unclassified_geo:
             st.write("**Unclassified Geography:**")
-            unclassified_geo_df = df[df['name'].isin(unclassified_geography)][['name', 'geography', 'market_total_eur']].copy()
+            unclassified_geo_df = df[df['name'].isin(unclassified_geo)][['name', 'geography', 'market_total_eur']].copy()
             st.dataframe(unclassified_geo_df, use_container_width=True, hide_index=True)
-            st.info("💡 **Tip:** Add keywords for these holdings to `GEOGRAPHY_KEYWORDS` in the code to improve classification.")
+            st.info("💡 **Tip:** Add keywords for these holdings to `GEOGRAPHY_KEYWORDS` in `config.py` to improve classification.")
         
-        if unclassified_sector:
+        if unclassified_sect:
             st.write("**Unclassified Sector:**")
-            unclassified_sector_df = df[df['name'].isin(unclassified_sector)][['name', 'sector', 'market_total_eur']].copy()
+            unclassified_sector_df = df[df['name'].isin(unclassified_sect)][['name', 'sector', 'market_total_eur']].copy()
             st.dataframe(unclassified_sector_df, use_container_width=True, hide_index=True)
-            st.info("💡 **Tip:** Add keywords for these holdings to `SECTOR_KEYWORDS` in the code to improve classification.")
+            st.info("💡 **Tip:** Add keywords for these holdings to `SECTOR_KEYWORDS` in `config.py` to improve classification.")
         
         st.markdown("""
         **How to fix:**
         1. Review the unclassified holdings above
-        2. Open `app.py` and locate the `GEOGRAPHY_KEYWORDS` or `SECTOR_KEYWORDS` dictionaries
+        2. Open `config.py` and locate the `GEOGRAPHY_KEYWORDS` or `SECTOR_KEYWORDS` dictionaries
         3. Add the missing company names or keywords to the appropriate category
         4. Restart the application
         """)
@@ -815,7 +623,7 @@ with tab2:
             "Stream AI output (simulate typing)",
             value=False,
             help="Display AI suggestions gradually as they arrive (simulated)."
-        )
+            )
 
         # If user provides a key here, prefer it for this session
         if api_key_input:
@@ -833,7 +641,7 @@ with tab2:
             # Step 2: call the AI (this may take a while)
             status_text.info("Calling OpenAI and waiting for the response...")
             progress_bar.progress(50)
-
+            
             ai_text, ai_err = generate_ai_suggestions(df, user_goals, risk_profile, model_name=model_name)
 
             # Step 3: render results
