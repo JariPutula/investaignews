@@ -99,6 +99,22 @@ SECTOR_KEYWORDS = {
     }
 }
 
-# Default CSV file path
+# Default CSV file path (fallback for backward compatibility)
 DEFAULT_CSV_PATH = 'holdings_from_op.csv'
+
+# ============================================================================
+# HISTORICAL PERFORMANCE CONFIGURATION
+# ============================================================================
+
+# User/portfolio name (used in snapshot file naming)
+DEFAULT_USER_NAME = "jari"
+
+# Snapshot file naming patterns
+# Historical: {DDMMYYYY}_assets_{user}.csv (e.g., 20112025_assets_jari.csv)
+# Latest: latest_assets_{user}.csv (e.g., latest_assets_jari.csv)
+LATEST_SNAPSHOT_PATTERN = "latest_assets_{user}.csv"
+HISTORICAL_SNAPSHOT_PATTERN = "{date}_assets_{user}.csv"
+
+# Date format for parsing snapshot filenames (DDMMYYYY)
+SNAPSHOT_DATE_FORMAT = "%d%m%Y"
 

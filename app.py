@@ -23,6 +23,19 @@ from portfolio import (
     reset_unclassified_tracking,
 )
 
+# Import historical performance modules
+from portfolio.historical import (
+    get_portfolio_value_over_time,
+    get_historical_performance_summary,
+    calculate_period_returns,
+)
+from portfolio.benchmarks import (
+    DEFAULT_BENCHMARKS,
+    list_available_benchmarks,
+    get_recommended_benchmarks,
+)
+from config import DEFAULT_USER_NAME
+
 # Debug container for correlation diagnostics
 CORR_DEBUG = {}
 
@@ -361,7 +374,14 @@ if unclassified_geo or unclassified_sect:
         """)
 
 # Create tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Interactive Dashboard", "🤖 Strategic Analysis & AI Suggestions", "⚖️ Rebalancing Calculator", "🎲 Risk Metrics", "📰 News and Sentiments"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📈 Interactive Dashboard",
+    "🤖 Strategic Analysis & AI Suggestions",
+    "⚖️ Rebalancing Calculator",
+    "🎲 Risk Metrics",
+    "📰 News and Sentiments",
+    "📊 Historical Performance"
+])
 
 with tab1:
     st.header("Portfolio Overview")
@@ -1597,4 +1617,429 @@ with tab5:
         # Raw articles count
         st.write(f"**Total articles analyzed:** {len(articles)}")
         st.write(f"**Backend used:** {backend}")
+
+with tab6:
+    st.header("📊 Historical Performance")
+    
+    st.markdown("""
+    This section shows the development of your portfolio over time, comparing it against 
+    benchmark indices. Historical snapshots are loaded from dated CSV files (e.g., `20112025_assets_jari.csv`).
+    """)
+    
+    # User selection
+    col1, col2 = st.columns(2)
+    with col1:
+        user_name = st.text_input(
+            "User/Portfolio Name",
+            value=DEFAULT_USER_NAME,
+            help="Name used in snapshot filenames (e.g., 'jari' for latest_assets_jari.csv)"
+        )
+    
+    with col2:
+        risk_free_rate = st.number_input(
+            "Risk-Free Rate (%)",
+            min_value=0.0,
+            max_value=10.0,
+            value=2.0,
+            step=0.1,
+            help="Annual risk-free rate for risk-adjusted metrics"
+        ) / 100
+    
+    st.divider()
+    
+    # Load historical performance summary
+    try:
+        with st.spinner("Loading historical data and fetching benchmarks..."):
+            # Get available benchmarks
+            available_benchmarks = list_available_benchmarks()
+            recommended = get_recommended_benchmarks("global")
+            
+            # Benchmark selection
+            st.subheader("Benchmark Selection")
+            selected_benchmarks = st.multiselect(
+                "Select benchmarks to compare against",
+                options=available_benchmarks['all'],
+                default=recommended[:2] if len(recommended) >= 2 else recommended,
+                help="Select one or more benchmarks to compare your portfolio performance"
+            )
+            
+            if not selected_benchmarks:
+                st.warning("Please select at least one benchmark for comparison.")
+                st.stop()
+            
+            # Get performance summary
+            summary = get_historical_performance_summary(
+                user_name=user_name,
+                benchmark_names=selected_benchmarks,
+                risk_free_rate=risk_free_rate
+            )
+            
+            portfolio_timeline = summary.get('portfolio_timeline', pd.DataFrame())
+            benchmarks_data = summary.get('benchmarks', {})
+            comparisons = summary.get('comparisons', {})
+            period_returns = summary.get('period_returns', {})
+            
+            if portfolio_timeline.empty:
+                st.warning(
+                    f"⚠️ **No historical snapshots found for user '{user_name}'.**\n\n"
+                    "To use this feature:\n"
+                    "1. Create snapshot files named: `{DDMMYYYY}_assets_{user}.csv`\n"
+                    "2. Example: `20112025_assets_jari.csv` for November 20, 2025\n"
+                    "3. The `latest_assets_{user}.csv` file is automatically included\n\n"
+                    "See `HOW_TO_ADD_SNAPSHOTS.md` for more details."
+                )
+                st.stop()
+            
+            # Display snapshot info
+            num_snapshots = len(portfolio_timeline)
+            date_range = f"{portfolio_timeline.index.min().strftime('%Y-%m-%d')} to {portfolio_timeline.index.max().strftime('%Y-%m-%d')}"
+            
+            st.info(f"📅 **Data Range:** {date_range} ({num_snapshots} snapshot{'s' if num_snapshots != 1 else ''})")
+            
+            if num_snapshots < 2:
+                st.warning("⚠️ **Limited data:** You need at least 2 snapshots for meaningful historical analysis. Consider adding more snapshot files.")
+            
+            st.divider()
+            
+            # Portfolio Value Over Time
+            st.subheader("💰 Portfolio Value Over Time")
+            
+            if not portfolio_timeline.empty:
+                # Create value chart
+                fig_value = go.Figure()
+                
+                # Portfolio value line
+                fig_value.add_trace(go.Scatter(
+                    x=portfolio_timeline.index,
+                    y=portfolio_timeline['total_value_eur'],
+                    mode='lines+markers',
+                    name='Portfolio Value',
+                    line=dict(color='#1f77b4', width=3),
+                    marker=dict(size=8)
+                ))
+                
+                fig_value.update_layout(
+                    title='Portfolio Total Value Over Time',
+                    xaxis_title='Date',
+                    yaxis_title='Value (EUR)',
+                    height=500,
+                    hovermode='x unified',
+                    yaxis=dict(tickformat='€,.0f')
+                )
+                
+                st.plotly_chart(fig_value, use_container_width=True)
+                
+                # Display current metrics
+                latest_value = portfolio_timeline['total_value_eur'].iloc[-1]
+                earliest_value = portfolio_timeline['total_value_eur'].iloc[0]
+                total_change = latest_value - earliest_value
+                total_change_pct = ((latest_value / earliest_value) - 1) * 100 if earliest_value > 0 else 0
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Current Value", f"€{latest_value:,.2f}")
+                with col2:
+                    st.metric("Total Change", f"€{total_change:,.2f}", f"{total_change_pct:+.2f}%")
+                with col3:
+                    st.metric("Number of Snapshots", num_snapshots)
+            
+            st.divider()
+            
+            # Benchmark Comparison (Normalized)
+            if benchmarks_data:
+                st.subheader("📈 Portfolio vs Benchmarks (Normalized)")
+                
+                from portfolio.benchmarks.benchmark_fetcher import normalize_benchmark_data
+                
+                # Normalize portfolio to 100 at start
+                portfolio_normalized = portfolio_timeline.copy()
+                if len(portfolio_normalized) > 0:
+                    base_value = portfolio_normalized['total_value_eur'].iloc[0]
+                    portfolio_normalized['normalized'] = (portfolio_normalized['total_value_eur'] / base_value) * 100
+                
+                # Create comparison chart
+                fig_comparison = go.Figure()
+                
+                # Portfolio line
+                if len(portfolio_normalized) > 0:
+                    fig_comparison.add_trace(go.Scatter(
+                        x=portfolio_normalized.index,
+                        y=portfolio_normalized['normalized'],
+                        mode='lines+markers',
+                        name='Portfolio',
+                        line=dict(color='#1f77b4', width=3),
+                        marker=dict(size=8)
+                    ))
+                
+                # Benchmark lines
+                colors = ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+                for idx, (benchmark_name, benchmark_df) in enumerate(benchmarks_data.items()):
+                    if not benchmark_df.empty and 'price_eur' in benchmark_df.columns:
+                        normalized_benchmark = normalize_benchmark_data(benchmark_df)
+                        if 'normalized' in normalized_benchmark.columns:
+                            color = colors[idx % len(colors)]
+                            fig_comparison.add_trace(go.Scatter(
+                                x=normalized_benchmark.index,
+                                y=normalized_benchmark['normalized'],
+                                mode='lines+markers',
+                                name=benchmark_name,
+                                line=dict(color=color, width=2),
+                                marker=dict(size=6)
+                            ))
+                
+                fig_comparison.update_layout(
+                    title='Portfolio vs Benchmarks (Normalized to 100 at Start)',
+                    xaxis_title='Date',
+                    yaxis_title='Normalized Value (Base = 100)',
+                    height=500,
+                    hovermode='x unified',
+                    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+                )
+                
+                st.plotly_chart(fig_comparison, use_container_width=True)
+                
+                st.info("💡 **Note:** All values are normalized to 100 at the start date for easy comparison.")
+            
+            st.divider()
+            
+            # Period Returns Table
+            if period_returns:
+                st.subheader("📊 Period Returns")
+                
+                # Create period returns table
+                periods = ["1M", "3M", "6M", "1Y", "YTD", "All-time"]
+                returns_data = []
+                
+                for period in periods:
+                    return_pct = period_returns.get(period)
+                    if return_pct is not None:
+                        returns_data.append({
+                            'Period': period,
+                            'Return (%)': f"{return_pct:.2f}%"
+                        })
+                
+                if returns_data:
+                    returns_df = pd.DataFrame(returns_data)
+                    st.dataframe(returns_df, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Period returns require more historical data points.")
+            
+            # Benchmark Comparison Metrics
+            if comparisons:
+                st.divider()
+                st.subheader("🔍 Benchmark Comparison Metrics")
+                
+                # Create comparison metrics table
+                comparison_data = []
+                for benchmark_name, comp in comparisons.items():
+                    comparison_data.append({
+                        'Benchmark': benchmark_name,
+                        'Beta': f"{comp.get('beta', np.nan):.3f}" if not pd.isna(comp.get('beta')) else "N/A",
+                        'Alpha (%)': f"{comp.get('alpha', np.nan):.2f}" if not pd.isna(comp.get('alpha')) else "N/A",
+                        'Tracking Error (%)': f"{comp.get('tracking_error', np.nan):.2f}" if not pd.isna(comp.get('tracking_error')) else "N/A",
+                        'Information Ratio': f"{comp.get('information_ratio', np.nan):.3f}" if not pd.isna(comp.get('information_ratio')) else "N/A",
+                        'Correlation': f"{comp.get('correlation', np.nan):.3f}" if not pd.isna(comp.get('correlation')) else "N/A",
+                    })
+                
+                if comparison_data:
+                    comparison_df = pd.DataFrame(comparison_data)
+                    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                    
+                    # Explanation
+                    with st.expander("📖 Metric Explanations", expanded=False):
+                        st.markdown("""
+                        - **Beta**: Portfolio sensitivity to benchmark (1.0 = moves with market, >1.0 = more volatile, <1.0 = less volatile)
+                        - **Alpha**: Risk-adjusted excess return (positive = outperformance, negative = underperformance)
+                        - **Tracking Error**: Volatility of excess returns (lower = more consistent relative performance)
+                        - **Information Ratio**: Alpha / Tracking Error (higher = better risk-adjusted outperformance)
+                        - **Correlation**: How closely portfolio moves with benchmark (1.0 = perfect correlation, 0 = no correlation)
+                        """)
+            
+            # Period Comparison Table (Portfolio vs Benchmarks)
+            if comparisons and period_returns:
+                st.divider()
+                st.subheader("📋 Period Returns Comparison")
+                
+                # Get first benchmark for comparison
+                if len(comparisons) > 0:
+                    benchmark_name = list(comparisons.keys())[0]
+                    comparison = comparisons[benchmark_name]
+                    
+                    portfolio_periods = comparison.get('period_returns', {}).get('portfolio', {})
+                    benchmark_periods = comparison.get('period_returns', {}).get('benchmark', {})
+                    
+                    if portfolio_periods and benchmark_periods:
+                        comparison_table_data = []
+                        for period in ["1M", "3M", "6M", "1Y", "YTD", "All-time"]:
+                            port_return = portfolio_periods.get(period)
+                            bench_return = benchmark_periods.get(period)
+                            
+                            if port_return is not None and bench_return is not None:
+                                diff = port_return - bench_return
+                                comparison_table_data.append({
+                                    'Period': period,
+                                    'Portfolio (%)': f"{port_return:.2f}%",
+                                    f'{benchmark_name} (%)': f"{bench_return:.2f}%",
+                                    'Difference (%)': f"{diff:+.2f}%"
+                                })
+                        
+                        if comparison_table_data:
+                            comparison_table_df = pd.DataFrame(comparison_table_data)
+                            st.dataframe(comparison_table_df, use_container_width=True, hide_index=True)
+            
+            # Risk Metrics Over Time (if enough data)
+            if not portfolio_timeline.empty and len(portfolio_timeline) >= 12:
+                st.divider()
+                st.subheader("📉 Risk Metrics Over Time")
+                
+                from portfolio.historical.performance_tracker import (
+                    calculate_rolling_volatility,
+                    calculate_rolling_sharpe_ratio,
+                )
+                
+                # Calculate returns
+                portfolio_values = portfolio_timeline['total_value_eur']
+                portfolio_returns = portfolio_values.pct_change().dropna()
+                
+                if len(portfolio_returns) >= 12:
+                    # Rolling volatility
+                    rolling_vol = calculate_rolling_volatility(portfolio_returns, window=12)
+                    
+                    if not rolling_vol.empty:
+                        fig_vol = go.Figure()
+                        fig_vol.add_trace(go.Scatter(
+                            x=rolling_vol.index,
+                            y=rolling_vol.values,
+                            mode='lines',
+                            name='12-Month Rolling Volatility',
+                            line=dict(color='#d62728', width=2)
+                        ))
+                        fig_vol.update_layout(
+                            title='Rolling Volatility (12-Month Window, Annualized)',
+                            xaxis_title='Date',
+                            yaxis_title='Volatility (%)',
+                            height=400
+                        )
+                        st.plotly_chart(fig_vol, use_container_width=True)
+                    
+                    # Rolling Sharpe ratio
+                    rolling_sharpe = calculate_rolling_sharpe_ratio(portfolio_returns, risk_free_rate=risk_free_rate, window=12)
+                    
+                    if not rolling_sharpe.empty:
+                        fig_sharpe = go.Figure()
+                        fig_sharpe.add_trace(go.Scatter(
+                            x=rolling_sharpe.index,
+                            y=rolling_sharpe.values,
+                            mode='lines',
+                            name='12-Month Rolling Sharpe Ratio',
+                            line=dict(color='#2ca02c', width=2)
+                        ))
+                        fig_sharpe.update_layout(
+                            title='Rolling Sharpe Ratio (12-Month Window)',
+                            xaxis_title='Date',
+                            yaxis_title='Sharpe Ratio',
+                            height=400
+                        )
+                        st.plotly_chart(fig_sharpe, use_container_width=True)
+            elif not portfolio_timeline.empty:
+                st.info("💡 **Note:** Risk metrics over time require at least 12 data points. You currently have {len(portfolio_timeline)} snapshot(s).")
+            
+            # Allocation Evolution (if enough snapshots)
+            if not portfolio_timeline.empty and num_snapshots >= 2:
+                st.divider()
+                st.subheader("🌍 Allocation Evolution")
+                
+                from portfolio.historical.snapshot_loader import load_all_snapshots
+                
+                try:
+                    all_snapshots = load_all_snapshots(user_name, enrich=True)
+                    
+                    if not all_snapshots.empty and 'geography' in all_snapshots.columns:
+                        # Group by date and geography
+                        geo_evolution = all_snapshots.groupby(['snapshot_date', 'geography'])['market_total_eur'].sum().reset_index()
+                        geo_evolution_pivot = geo_evolution.pivot(index='snapshot_date', columns='geography', values='market_total_eur').fillna(0)
+                        
+                        # Calculate percentages
+                        geo_evolution_pct = geo_evolution_pivot.div(geo_evolution_pivot.sum(axis=1), axis=0) * 100
+                        
+                        # Stacked area chart
+                        fig_geo = go.Figure()
+                        for geo in geo_evolution_pct.columns:
+                            fig_geo.add_trace(go.Scatter(
+                                x=geo_evolution_pct.index,
+                                y=geo_evolution_pct[geo],
+                                mode='lines',
+                                name=geo,
+                                stackgroup='one',
+                                fill='tonexty' if geo != geo_evolution_pct.columns[0] else 'tozeroy'
+                            ))
+                        
+                        fig_geo.update_layout(
+                            title='Geographic Allocation Over Time',
+                            xaxis_title='Date',
+                            yaxis_title='Allocation (%)',
+                            height=400,
+                            hovermode='x unified'
+                        )
+                        st.plotly_chart(fig_geo, use_container_width=True)
+                    
+                    if not all_snapshots.empty and 'sector' in all_snapshots.columns:
+                        # Sector evolution
+                        sector_evolution = all_snapshots.groupby(['snapshot_date', 'sector'])['market_total_eur'].sum().reset_index()
+                        sector_evolution_pivot = sector_evolution.pivot(index='snapshot_date', columns='sector', values='market_total_eur').fillna(0)
+                        sector_evolution_pct = sector_evolution_pivot.div(sector_evolution_pivot.sum(axis=1), axis=0) * 100
+                        
+                        # Show top 5 sectors
+                        top_sectors = sector_evolution_pct.iloc[-1].nlargest(5).index
+                        sector_evolution_pct_top = sector_evolution_pct[top_sectors]
+                        
+                        fig_sector = go.Figure()
+                        for sector in sector_evolution_pct_top.columns:
+                            fig_sector.add_trace(go.Scatter(
+                                x=sector_evolution_pct_top.index,
+                                y=sector_evolution_pct_top[sector],
+                                mode='lines',
+                                name=sector,
+                                stackgroup='one',
+                                fill='tonexty' if sector != sector_evolution_pct_top.columns[0] else 'tozeroy'
+                            ))
+                        
+                        fig_sector.update_layout(
+                            title='Sector Allocation Over Time (Top 5 Sectors)',
+                            xaxis_title='Date',
+                            yaxis_title='Allocation (%)',
+                            height=400,
+                            hovermode='x unified'
+                        )
+                        st.plotly_chart(fig_sector, use_container_width=True)
+                except Exception as e:
+                    st.warning(f"Could not load allocation evolution data: {e}")
+            
+            st.divider()
+            
+            # Data Info
+            with st.expander("ℹ️ About Historical Performance", expanded=False):
+                st.markdown("""
+                **How it works:**
+                - Historical snapshots are loaded from files named `{DDMMYYYY}_assets_{user}.csv`
+                - The `latest_assets_{user}.csv` file is automatically included as the most recent data point
+                - Benchmark data is fetched from Yahoo Finance and converted to EUR for comparison
+                - All metrics are calculated based on the available snapshot dates
+                
+                **Requirements:**
+                - At least 2 snapshots for basic comparisons
+                - 12+ snapshots recommended for rolling metrics (volatility, Sharpe ratio)
+                - Benchmark data requires internet connection and may take a few seconds to fetch
+                
+                **File Naming:**
+                - Historical: `20112025_assets_jari.csv` (November 20, 2025)
+                - Latest: `latest_assets_jari.csv`
+                - Date format: DDMMYYYY (day, month, year)
+                """)
+    
+    except Exception as e:
+        st.error(f"Error loading historical performance data: {e}")
+        import traceback
+        with st.expander("Error Details", expanded=False):
+            st.code(traceback.format_exc())
 
