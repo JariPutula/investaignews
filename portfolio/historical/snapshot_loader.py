@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from config import DEFAULT_CSV_PATH, DEFAULT_USER_NAME
+from config import DEFAULT_CSV_PATH, DEFAULT_USER_NAME, DATA_DIR
 from portfolio.classification import reset_unclassified_tracking
 from portfolio.historical.snapshot_manager import (
     find_snapshot_files,
@@ -144,7 +144,7 @@ def load_latest_snapshot(
         user_name = DEFAULT_USER_NAME
     
     if directory is None:
-        directory = os.getcwd()
+        directory = os.path.join(os.getcwd(), DATA_DIR)
     
     # Try to load latest snapshot
     latest_path = get_latest_snapshot_path(user_name, directory)

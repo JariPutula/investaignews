@@ -1,0 +1,2 @@
+ticker,name,quantity,purchase_price_eur,purchase_total_eur,market_price_eur,market_total_eur,change_eur,change_pct
+Laji,Omistus kpl,Hankinta-hinta EUR,Hankinta-arvo yht. EUR,Markkina-hinta EUR,Markkina-arvo yht. EUR,Muutos EUR,Muutos % 

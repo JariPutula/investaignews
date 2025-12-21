@@ -8,7 +8,7 @@ from typing import Optional
 
 import streamlit as st
 
-from config import DEFAULT_CSV_PATH, DEFAULT_USER_NAME
+from config import DEFAULT_CSV_PATH, DEFAULT_USER_NAME, DATA_DIR
 from portfolio.classification import (
     classify_geography,
     classify_sector,

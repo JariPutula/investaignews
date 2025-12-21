@@ -12,6 +12,7 @@ from config import (
     HISTORICAL_SNAPSHOT_PATTERN,
     LATEST_SNAPSHOT_PATTERN,
     SNAPSHOT_DATE_FORMAT,
+    DATA_DIR,
 )
 
 
@@ -61,7 +62,7 @@ def find_snapshot_files(
         List of (date, filepath) tuples, sorted by date (oldest first)
     """
     if directory is None:
-        directory = os.getcwd()
+        directory = os.path.join(os.getcwd(), DATA_DIR)
     
     snapshot_files = []
     
@@ -95,7 +96,7 @@ def get_latest_snapshot_path(user_name: str, directory: Optional[str] = None) ->
         Path to latest snapshot file, or None if not found
     """
     if directory is None:
-        directory = os.getcwd()
+        directory = os.path.join(os.getcwd(), DATA_DIR)
     
     # Pattern: latest_assets_{user}.csv
     filename = LATEST_SNAPSHOT_PATTERN.format(user=user_name)
@@ -125,7 +126,7 @@ def get_snapshot_info(user_name: str, directory: Optional[str] = None) -> dict:
         }
     """
     if directory is None:
-        directory = os.getcwd()
+        directory = os.path.join(os.getcwd(), DATA_DIR)
     
     latest_path = get_latest_snapshot_path(user_name, directory)
     historical_snapshots = find_snapshot_files(user_name, directory)

@@ -2,6 +2,8 @@
 Configuration constants for portfolio classification.
 """
 
+import os
+
 # ============================================================================
 # CLASSIFICATION CONFIGURATION - EASILY EXTENSIBLE
 # ============================================================================
@@ -29,7 +31,7 @@ GEOGRAPHY_KEYWORDS = {
         'etf_patterns': []
     },
     'Europe/Global': {
-        'keywords': ['BAE SYSTEMS', 'BAE', 'IPSEN'],
+        'keywords': ['BAE SYSTEMS', 'BAE', 'IPSEN', 'BNP PARIBAS', 'BNP'],
         'company_suffixes': ['PLC', 'SA', 'SPA', 'AS', 'ABP', 'AB', 'AG', 'SE', 'NV'],
         'etf_patterns': ['EMU', 'EUROPE', 'EURO', 'EMERGING', 'WORLD', 'GLOBAL', 'ALLWORLD']
     }
@@ -51,7 +53,8 @@ SECTOR_KEYWORDS = {
     },
     'Financial Services': {
         'keywords': ['BANCO', 'SANTANDER', 'SAMPO', 'MANDATUM', 'NORDEA', 'BANK',
-                    'JPMORGAN', 'GOLDMAN', 'MORGAN STANLEY', 'WELLS FARGO', 'CITI'],
+                    'JPMORGAN', 'GOLDMAN', 'MORGAN STANLEY', 'WELLS FARGO', 'CITI',
+                    'BNP PARIBAS', 'BNP'],
         'etf_patterns': ['FINANCIAL', 'BANK', 'INSURANCE']
     },
     'Energy/Utilities': {
@@ -99,8 +102,11 @@ SECTOR_KEYWORDS = {
     }
 }
 
+# Data directory for asset files
+DATA_DIR = 'data'
+
 # Default CSV file path (fallback for backward compatibility)
-DEFAULT_CSV_PATH = 'holdings_from_op.csv'
+DEFAULT_CSV_PATH = os.path.join(DATA_DIR, 'holdings_from_op.csv')
 
 # ============================================================================
 # HISTORICAL PERFORMANCE CONFIGURATION

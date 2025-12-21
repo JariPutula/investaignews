@@ -7,7 +7,9 @@ slightly modified values to simulate portfolio changes over time.
 
 import pandas as pd
 import shutil
+import os
 from datetime import datetime, timedelta
+from config import DATA_DIR, DEFAULT_USER_NAME
 
 def create_test_snapshot(source_file: str, target_file: str, value_change_pct: float = 0.0):
     """
@@ -36,8 +38,8 @@ def create_test_snapshot(source_file: str, target_file: str, value_change_pct: f
 
 def main():
     """Create test snapshots for the last few months."""
-    user_name = "jari"
-    source_file = f"latest_assets_{user_name}.csv"
+    user_name = DEFAULT_USER_NAME
+    source_file = os.path.join(DATA_DIR, f"latest_assets_{user_name}.csv")
     
     # Check if source file exists
     try:
@@ -57,7 +59,7 @@ def main():
     for months_ago in range(3, 0, -1):
         snapshot_date = today - timedelta(days=30 * months_ago)
         date_str = snapshot_date.strftime("%d%m%Y")
-        target_file = f"{date_str}_assets_{user_name}.csv"
+        target_file = os.path.join(DATA_DIR, f"{date_str}_assets_{user_name}.csv")
         
         # Apply a small change to simulate portfolio growth
         # -3 months: -2%, -2 months: -1%, -1 month: +1%
@@ -69,18 +71,18 @@ def main():
     print("\nCreating weekly snapshot...")
     week_ago = today - timedelta(days=7)
     date_str = week_ago.strftime("%d%m%Y")
-    target_file = f"{date_str}_assets_{user_name}.csv"
+    target_file = os.path.join(DATA_DIR, f"{date_str}_assets_{user_name}.csv")
     create_test_snapshot(source_file, target_file, value_change_pct=0.5)
     
     print("\n" + "=" * 60)
     print("Test snapshots created!")
     print("=" * 60)
     print("\nFiles created:")
-    print(f"  - {week_ago.strftime('%d%m%Y')}_assets_{user_name}.csv (1 week ago)")
+    print(f"  - {os.path.join(DATA_DIR, week_ago.strftime('%d%m%Y') + '_assets_' + user_name + '.csv')} (1 week ago)")
     for months_ago in range(3, 0, -1):
         snapshot_date = today - timedelta(days=30 * months_ago)
-        print(f"  - {snapshot_date.strftime('%d%m%Y')}_assets_{user_name}.csv ({months_ago} months ago)")
-    print(f"\n  - latest_assets_{user_name}.csv (current)")
+        print(f"  - {os.path.join(DATA_DIR, snapshot_date.strftime('%d%m%Y') + '_assets_' + user_name + '.csv')} ({months_ago} months ago)")
+    print(f"\n  - {os.path.join(DATA_DIR, 'latest_assets_' + user_name + '.csv')} (current)")
     print("\nYou now have multiple snapshots for testing historical performance!")
 
 
