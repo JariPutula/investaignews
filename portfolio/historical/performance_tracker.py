@@ -94,13 +94,21 @@ def calculate_benchmark_period_returns(
     Calculate benchmark returns for different time periods.
     
     Args:
-        benchmark_data: DataFrame with date index and price_eur column
+        benchmark_data: DataFrame with date index and price_eur or price_native column
         periods: List of periods to calculate
     
     Returns:
         Dictionary mapping period names to returns (as percentages)
     """
-    if benchmark_data.empty or 'price_eur' not in benchmark_data.columns:
+    if benchmark_data.empty:
+        return {}
+    
+    # Determine which price column to use
+    if 'price_eur' in benchmark_data.columns:
+        price_col = 'price_eur'
+    elif 'price_native' in benchmark_data.columns:
+        price_col = 'price_native'
+    else:
         return {}
     
     if periods is None:
@@ -108,7 +116,7 @@ def calculate_benchmark_period_returns(
     
     # Get latest date and value
     latest_date = benchmark_data.index.max()
-    latest_value = benchmark_data.loc[latest_date, 'price_eur']
+    latest_value = benchmark_data.loc[latest_date, price_col]
     
     # Get earliest date
     earliest_date = benchmark_data.index.min()
@@ -137,7 +145,7 @@ def calculate_benchmark_period_returns(
             returns[period] = None
             continue
         
-        start_value = benchmark_data.loc[valid_dates[0], 'price_eur']
+        start_value = benchmark_data.loc[valid_dates[0], price_col]
         
         if start_value == 0 or pd.isna(start_value):
             returns[period] = None
@@ -425,7 +433,15 @@ def compare_portfolio_to_benchmark(
     
     # Get aligned data
     portfolio_values = portfolio_timeline.loc[common_dates, 'total_value_eur']
-    benchmark_values = benchmark_data.loc[common_dates, 'price_eur']
+    
+    # Get benchmark values - prefer price_eur, fallback to price_native
+    if 'price_eur' in benchmark_data.columns:
+        benchmark_values = benchmark_data.loc[common_dates, 'price_eur']
+    elif 'price_native' in benchmark_data.columns:
+        benchmark_values = benchmark_data.loc[common_dates, 'price_native']
+    else:
+        # No price column available
+        return {}
     
     # Calculate returns
     portfolio_returns = portfolio_values.pct_change().dropna()

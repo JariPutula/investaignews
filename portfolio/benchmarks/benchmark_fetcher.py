@@ -59,21 +59,35 @@ def fetch_benchmark_data(
         if data is None or data.empty:
             return None
         
+        # Handle MultiIndex columns (yfinance sometimes returns these)
+        if isinstance(data.columns, pd.MultiIndex):
+            # Flatten column names
+            data.columns = data.columns.get_level_values(-1)
+        
         # Use Adj Close if available, otherwise Close
         if 'Adj Close' in data.columns:
             prices = data['Adj Close'].copy()
-        else:
+        elif 'Close' in data.columns:
             prices = data['Close'].copy()
+        else:
+            # Fallback: use first numeric column
+            numeric_cols = data.select_dtypes(include=['float64', 'float32', 'int64', 'int32']).columns
+            if len(numeric_cols) > 0:
+                prices = data[numeric_cols[0]].copy()
+            else:
+                return None
+        
+        # Ensure prices is a Series (1D)
+        if isinstance(prices, pd.DataFrame):
+            prices = prices.iloc[:, 0]  # Take first column if DataFrame
         
         # Convert to DataFrame with Date index
+        # Ensure all values are 1D arrays
         result = pd.DataFrame({
-            'date': prices.index,
-            'price': prices.values,
-            'ticker': ticker,
-            'benchmark_name': benchmark_name,
-        })
+            'price': prices.values.flatten(),  # Ensure 1D
+        }, index=prices.index)
         
-        result.set_index('date', inplace=True)
+        result.index.name = 'date'
         
         return result
     except Exception as e:
@@ -134,29 +148,35 @@ def fetch_benchmark_for_date_range(
     # Get ticker for currency conversion
     ticker = get_benchmark_ticker(benchmark_name)
     
+    # Ensure we have a 'price' column
+    if 'price' not in benchmark_data.columns:
+        return pd.DataFrame()
+    
     # For each snapshot date, find closest benchmark value
     result_data = []
     for snapshot_date in datetime_dates:
         # Find closest date in benchmark data
-        date_str = snapshot_date.strftime("%Y-%m-%d")
-        
-        # Try exact match first
-        if date_str in benchmark_data.index.strftime("%Y-%m-%d"):
-            matching_dates = benchmark_data.index[
-                benchmark_data.index.strftime("%Y-%m-%d") == date_str
-            ]
-            if len(matching_dates) > 0:
-                closest_date = matching_dates[0]
-            else:
-                continue
-        else:
-            # Find closest date (before or on snapshot date)
+        # Use asof to get last valid value on or before snapshot_date
+        try:
+            closest_date = benchmark_data.index.asof(snapshot_date)
+            if pd.isna(closest_date):
+                # No data before this date, try forward fill
+                after_dates = benchmark_data.index[benchmark_data.index >= snapshot_date]
+                if len(after_dates) > 0:
+                    closest_date = after_dates[0]
+                else:
+                    continue
+        except Exception:
+            # Fallback: find closest date manually
             before_dates = benchmark_data.index[benchmark_data.index <= snapshot_date]
             if len(before_dates) == 0:
                 continue
             closest_date = before_dates[-1]
         
-        price_usd = benchmark_data.loc[closest_date, 'price']
+        try:
+            price_usd = benchmark_data.loc[closest_date, 'price']
+        except (KeyError, IndexError):
+            continue
         
         if pd.isna(price_usd):
             continue
@@ -174,7 +194,9 @@ def fetch_benchmark_for_date_range(
                 ticker,
                 date=snapshot_date
             )
-            result_row['price_eur'] = price_eur
+            if price_eur is not None:
+                result_row['price_eur'] = price_eur
+            # If conversion fails, keep price_native (will be handled in normalization)
         
         result_data.append(result_row)
     
@@ -208,22 +230,52 @@ def normalize_benchmark_data(
     if base_date is None:
         base_date = benchmark_df.index[0]
     
-    # Get base value
-    if 'price_eur' in benchmark_df.columns:
-        base_value = benchmark_df.loc[base_date, 'price_eur']
-        price_col = 'price_eur'
-    elif 'price_native' in benchmark_df.columns:
-        base_value = benchmark_df.loc[base_date, 'price_native']
-        price_col = 'price_native'
-    else:
-        return benchmark_df
+    # Get base value - prefer price_eur, fallback to price_native
+    price_col = None
+    base_value = None
     
-    if pd.isna(base_value) or base_value == 0:
+    if 'price_eur' in benchmark_df.columns:
+        # Check if price_eur has valid (non-None, non-NaN) values
+        price_eur_values = benchmark_df['price_eur'].dropna()
+        if not price_eur_values.empty:
+            price_col = 'price_eur'
+            # Try to get value at base_date, or use first valid value
+            try:
+                base_value = benchmark_df.loc[base_date, 'price_eur']
+                if pd.isna(base_value):
+                    # If base_date value is NaN, use first valid value
+                    base_value = price_eur_values.iloc[0]
+                    base_date = price_eur_values.index[0]
+            except (KeyError, IndexError):
+                # base_date not in index, use first valid value
+                base_value = price_eur_values.iloc[0]
+                base_date = price_eur_values.index[0]
+    
+    # Fallback to price_native if price_eur not available or all NaN
+    if price_col is None and 'price_native' in benchmark_df.columns:
+        price_native_values = benchmark_df['price_native'].dropna()
+        if not price_native_values.empty:
+            price_col = 'price_native'
+            # Try to get value at base_date, or use first valid value
+            try:
+                base_value = benchmark_df.loc[base_date, 'price_native']
+                if pd.isna(base_value):
+                    # If base_date value is NaN, use first valid value
+                    base_value = price_native_values.iloc[0]
+                    base_date = price_native_values.index[0]
+            except (KeyError, IndexError):
+                # base_date not in index, use first valid value
+                base_value = price_native_values.iloc[0]
+                base_date = price_native_values.index[0]
+    
+    if price_col is None or pd.isna(base_value) or base_value == 0:
         return benchmark_df
     
     # Normalize to 100
     result = benchmark_df.copy()
-    result['normalized'] = (result[price_col] / base_value) * 100
+    # Only normalize rows with valid price values
+    valid_mask = result[price_col].notna()
+    result.loc[valid_mask, 'normalized'] = (result.loc[valid_mask, price_col] / base_value) * 100
     
     return result
 
@@ -255,8 +307,14 @@ def fetch_multiple_benchmarks(
             )
             if not data.empty:
                 results[benchmark_name] = data
+            else:
+                # Log empty data but don't fail silently
+                import warnings
+                warnings.warn(f"Empty data returned for {benchmark_name}")
         except Exception as e:
-            print(f"Error fetching {benchmark_name}: {e}")
+            # Log error but continue with other benchmarks
+            import warnings
+            warnings.warn(f"Error fetching {benchmark_name}: {e}")
             continue
     
     return results

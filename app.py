@@ -356,13 +356,13 @@ if unclassified_geo or unclassified_sect:
         if unclassified_geo:
             st.write("**Unclassified Geography:**")
             unclassified_geo_df = df[df['name'].isin(unclassified_geo)][['name', 'geography', 'market_total_eur']].copy()
-            st.dataframe(unclassified_geo_df, use_container_width=True, hide_index=True)
+            st.dataframe(unclassified_geo_df, width='stretch', hide_index=True)
             st.info("💡 **Tip:** Add keywords for these holdings to `GEOGRAPHY_KEYWORDS` in `config.py` to improve classification.")
         
         if unclassified_sect:
             st.write("**Unclassified Sector:**")
             unclassified_sector_df = df[df['name'].isin(unclassified_sect)][['name', 'sector', 'market_total_eur']].copy()
-            st.dataframe(unclassified_sector_df, use_container_width=True, hide_index=True)
+            st.dataframe(unclassified_sector_df, width='stretch', hide_index=True)
             st.info("💡 **Tip:** Add keywords for these holdings to `SECTOR_KEYWORDS` in `config.py` to improve classification.")
         
         st.markdown("""
@@ -441,7 +441,7 @@ with tab1:
             }
         )
         fig_geo.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig_geo, use_container_width=True)
+        st.plotly_chart(fig_geo, width='stretch')
         
         # Display percentages
         st.write("**Breakdown:**")
@@ -471,7 +471,7 @@ with tab1:
             height=500,
             showlegend=False
         )
-        st.plotly_chart(fig_top10, use_container_width=True)
+        st.plotly_chart(fig_top10, width='stretch')
     
     st.divider()
     
@@ -502,7 +502,7 @@ with tab1:
             height=400,
             showlegend=False
         )
-        st.plotly_chart(fig_gainers, use_container_width=True)
+        st.plotly_chart(fig_gainers, width='stretch')
         
         # Display table
         st.write("**Details:**")
@@ -510,7 +510,7 @@ with tab1:
         display_gainers.columns = ['Holding', 'Gain (€)', 'Gain (%)']
         display_gainers['Gain (€)'] = display_gainers['Gain (€)'].apply(lambda x: f"€{x:,.2f}")
         display_gainers['Gain (%)'] = display_gainers['Gain (%)'].apply(lambda x: f"{x:.2f}%")
-        st.dataframe(display_gainers, use_container_width=True, hide_index=True)
+        st.dataframe(display_gainers, width='stretch', hide_index=True)
     
     with col2:
         st.subheader("Bottom 5 Losers")
@@ -530,7 +530,7 @@ with tab1:
             height=400,
             showlegend=False
         )
-        st.plotly_chart(fig_losers, use_container_width=True)
+        st.plotly_chart(fig_losers, width='stretch')
         
         # Display table
         st.write("**Details:**")
@@ -538,7 +538,7 @@ with tab1:
         display_losers.columns = ['Holding', 'Loss (€)', 'Loss (%)']
         display_losers['Loss (€)'] = display_losers['Loss (€)'].apply(lambda x: f"€{x:,.2f}")
         display_losers['Loss (%)'] = display_losers['Loss (%)'].apply(lambda x: f"{x:.2f}%")
-        st.dataframe(display_losers, use_container_width=True, hide_index=True)
+        st.dataframe(display_losers, width='stretch', hide_index=True)
 
 with tab2:
     st.header("Strategic Analysis & AI-Augmented Suggestions")
@@ -592,7 +592,7 @@ with tab2:
             height=400,
             showlegend=False
         )
-        st.plotly_chart(fig_sector, use_container_width=True)
+        st.plotly_chart(fig_sector, width='stretch')
     
     with col2:
         st.write("**Sector Breakdown:**")
@@ -718,7 +718,7 @@ with tab3:
             title='Current Allocation',
             hole=0.3
         )
-        st.plotly_chart(fig_current, use_container_width=True)
+        st.plotly_chart(fig_current, width='stretch')
     
     st.divider()
     
@@ -828,7 +828,7 @@ with tab3:
                    'Transaction Cost (€)', 'Tax (€)', 'Total Cost (€)']:
             display_df[col] = display_df[col].apply(lambda x: f"€{x:,.2f}")
         
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(display_df, width='stretch', hide_index=True)
         
         # Visual comparison
         st.subheader("Current vs Target Allocation")
@@ -870,7 +870,7 @@ with tab3:
             xaxis_tickangle=-45
         )
         
-        st.plotly_chart(fig_comparison, use_container_width=True)
+        st.plotly_chart(fig_comparison, width='stretch')
         
         # Step-by-step instructions
         st.subheader("📋 Step-by-Step Rebalancing Instructions")
@@ -1116,7 +1116,7 @@ with tab4:
     top_holdings['percentage'] = (top_holdings['market_total_eur'] / total_value * 100).round(2)
     top_holdings.columns = ['Holding', 'Value (€)', 'Sector', 'Geography', 'Portfolio %']
     top_holdings['Value (€)'] = top_holdings['Value (€)'].apply(lambda x: f"€{x:,.2f}")
-    st.dataframe(top_holdings, use_container_width=True, hide_index=True)
+    st.dataframe(top_holdings, width='stretch', hide_index=True)
     
     st.divider()
     
@@ -1165,7 +1165,7 @@ with tab4:
         xaxis_tickangle=-45
     )
     
-    st.plotly_chart(fig_corr, use_container_width=True)
+    st.plotly_chart(fig_corr, width='stretch')
     
     # Correlation insights
     st.write("**Correlation Insights:**")
@@ -1185,7 +1185,7 @@ with tab4:
     if high_corr_pairs:
         st.warning("**High Correlation Pairs (>0.7):**")
         high_corr_df = pd.DataFrame(high_corr_pairs)
-        st.dataframe(high_corr_df, use_container_width=True, hide_index=True)
+        st.dataframe(high_corr_df, width='stretch', hide_index=True)
         st.info("💡 High correlation means these holdings tend to move together, reducing diversification benefits.")
     else:
         st.success("✅ No extremely high correlations detected. Your portfolio shows good diversification.")
@@ -1377,7 +1377,7 @@ with tab5:
     st.divider()
     
     # Analyze button
-    if st.button("🔍 Analyze News", type="primary", use_container_width=True):
+    if st.button("🔍 Analyze News", type="primary"):
         # Parse tickers
         tickers = parse_tickers(ticker_input)
         
@@ -1586,7 +1586,7 @@ with tab5:
                 color_continuous_midpoint=0,
             )
             fig_sentiment.update_layout(height=400)
-            st.plotly_chart(fig_sentiment, use_container_width=True)
+            st.plotly_chart(fig_sentiment, width='stretch')
         
         with col2:
             # Article counts by sentiment
@@ -1610,7 +1610,7 @@ with tab5:
                 },
             )
             fig_counts.update_layout(height=400)
-            st.plotly_chart(fig_counts, use_container_width=True)
+            st.plotly_chart(fig_counts, width='stretch')
         
         st.divider()
         
@@ -1679,6 +1679,14 @@ with tab6:
             comparisons = summary.get('comparisons', {})
             period_returns = summary.get('period_returns', {})
             
+            # Debug: Show which benchmarks were successfully fetched
+            if benchmarks_data:
+                st.success(f"✓ Successfully fetched {len(benchmarks_data)} benchmark(s): {', '.join(benchmarks_data.keys())}")
+            if len(selected_benchmarks) > len(benchmarks_data):
+                missing = set(selected_benchmarks) - set(benchmarks_data.keys())
+                if missing:
+                    st.warning(f"⚠️ Failed to fetch {len(missing)} benchmark(s): {', '.join(missing)}")
+            
             if portfolio_timeline.empty:
                 st.warning(
                     f"⚠️ **No historical snapshots found for user '{user_name}'.**\n\n"
@@ -1727,7 +1735,7 @@ with tab6:
                     yaxis=dict(tickformat='€,.0f')
                 )
                 
-                st.plotly_chart(fig_value, use_container_width=True)
+                st.plotly_chart(fig_value, width='stretch')
                 
                 # Display current metrics
                 latest_value = portfolio_timeline['total_value_eur'].iloc[-1]
@@ -1774,18 +1782,32 @@ with tab6:
                 # Benchmark lines
                 colors = ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
                 for idx, (benchmark_name, benchmark_df) in enumerate(benchmarks_data.items()):
-                    if not benchmark_df.empty and 'price_eur' in benchmark_df.columns:
-                        normalized_benchmark = normalize_benchmark_data(benchmark_df)
-                        if 'normalized' in normalized_benchmark.columns:
-                            color = colors[idx % len(colors)]
-                            fig_comparison.add_trace(go.Scatter(
-                                x=normalized_benchmark.index,
-                                y=normalized_benchmark['normalized'],
-                                mode='lines+markers',
-                                name=benchmark_name,
-                                line=dict(color=color, width=2),
-                                marker=dict(size=6)
-                            ))
+                    # Check if benchmark has valid data (either price_eur or price_native)
+                    if benchmark_df.empty:
+                        st.warning(f"⚠️ {benchmark_name}: No data available")
+                        continue
+                    
+                    # Check for price column (prefer price_eur, fallback to price_native)
+                    if 'price_eur' not in benchmark_df.columns and 'price_native' not in benchmark_df.columns:
+                        st.warning(f"⚠️ {benchmark_name}: Missing price column")
+                        continue
+                    
+                    # Normalize benchmark data
+                    normalized_benchmark = normalize_benchmark_data(benchmark_df)
+                    if normalized_benchmark.empty or 'normalized' not in normalized_benchmark.columns:
+                        st.warning(f"⚠️ {benchmark_name}: Failed to normalize data")
+                        continue
+                    
+                    # Add to chart
+                    color = colors[idx % len(colors)]
+                    fig_comparison.add_trace(go.Scatter(
+                        x=normalized_benchmark.index,
+                        y=normalized_benchmark['normalized'],
+                        mode='lines+markers',
+                        name=benchmark_name,
+                        line=dict(color=color, width=2),
+                        marker=dict(size=6)
+                    ))
                 
                 fig_comparison.update_layout(
                     title='Portfolio vs Benchmarks (Normalized to 100 at Start)',
@@ -1796,7 +1818,7 @@ with tab6:
                     legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
                 )
                 
-                st.plotly_chart(fig_comparison, use_container_width=True)
+                st.plotly_chart(fig_comparison, width='stretch')
                 
                 st.info("💡 **Note:** All values are normalized to 100 at the start date for easy comparison.")
             
@@ -1820,7 +1842,7 @@ with tab6:
                 
                 if returns_data:
                     returns_df = pd.DataFrame(returns_data)
-                    st.dataframe(returns_df, use_container_width=True, hide_index=True)
+                    st.dataframe(returns_df, width='stretch', hide_index=True)
                 else:
                     st.info("Period returns require more historical data points.")
             
@@ -1843,7 +1865,7 @@ with tab6:
                 
                 if comparison_data:
                     comparison_df = pd.DataFrame(comparison_data)
-                    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                    st.dataframe(comparison_df, width='stretch', hide_index=True)
                     
                     # Explanation
                     with st.expander("📖 Metric Explanations", expanded=False):
@@ -1885,7 +1907,7 @@ with tab6:
                         
                         if comparison_table_data:
                             comparison_table_df = pd.DataFrame(comparison_table_data)
-                            st.dataframe(comparison_table_df, use_container_width=True, hide_index=True)
+                            st.dataframe(comparison_table_df, width='stretch', hide_index=True)
             
             # Risk Metrics Over Time (if enough data)
             if not portfolio_timeline.empty and len(portfolio_timeline) >= 12:
@@ -1920,7 +1942,7 @@ with tab6:
                             yaxis_title='Volatility (%)',
                             height=400
                         )
-                        st.plotly_chart(fig_vol, use_container_width=True)
+                        st.plotly_chart(fig_vol, width='stretch')
                     
                     # Rolling Sharpe ratio
                     rolling_sharpe = calculate_rolling_sharpe_ratio(portfolio_returns, risk_free_rate=risk_free_rate, window=12)
@@ -1940,7 +1962,7 @@ with tab6:
                             yaxis_title='Sharpe Ratio',
                             height=400
                         )
-                        st.plotly_chart(fig_sharpe, use_container_width=True)
+                        st.plotly_chart(fig_sharpe, width='stretch')
             elif not portfolio_timeline.empty:
                 st.info("💡 **Note:** Risk metrics over time require at least 12 data points. You currently have {len(portfolio_timeline)} snapshot(s).")
             
@@ -1981,7 +2003,7 @@ with tab6:
                             height=400,
                             hovermode='x unified'
                         )
-                        st.plotly_chart(fig_geo, use_container_width=True)
+                        st.plotly_chart(fig_geo, width='stretch')
                     
                     if not all_snapshots.empty and 'sector' in all_snapshots.columns:
                         # Sector evolution
@@ -2011,7 +2033,7 @@ with tab6:
                             height=400,
                             hovermode='x unified'
                         )
-                        st.plotly_chart(fig_sector, use_container_width=True)
+                        st.plotly_chart(fig_sector, width='stretch')
                 except Exception as e:
                     st.warning(f"Could not load allocation evolution data: {e}")
             
