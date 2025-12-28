@@ -120,7 +120,7 @@ def calculate_correlation_matrix(df):
 
         for t in tickers_list:
             try:
-                data = yf.download(t, period=period, interval=interval, progress=False, threads=False)
+                data = yf.download(t, period=period, interval=interval, progress=False, threads=False, auto_adjust=True)
                 if data is None or data.empty:
                     failed.append(t)
                     continue
@@ -1971,10 +1971,35 @@ with tab6:
                 st.divider()
                 st.subheader("🌍 Allocation Evolution")
                 
-                from portfolio.historical.snapshot_loader import load_all_snapshots
+                from portfolio.historical.snapshot_loader import load_all_snapshots, load_latest_snapshot
+                from config import DATA_DIR
                 
                 try:
-                    all_snapshots = load_all_snapshots(user_name, enrich=True)
+                    # Load all historical snapshots
+                    all_snapshots = load_all_snapshots(user_name, directory=DATA_DIR, enrich=True)
+                    
+                    # Also include the latest snapshot with current date
+                    try:
+                        latest_snapshot = load_latest_snapshot(user_name, directory=DATA_DIR, enrich=True, fallback_to_default=False)
+                        if not latest_snapshot.empty:
+                            # Use current date for latest snapshot if no date is set
+                            if 'snapshot_date' not in latest_snapshot.columns or latest_snapshot['snapshot_date'].isna().all():
+                                from datetime import datetime
+                                latest_snapshot['snapshot_date'] = datetime.now()
+                            
+                            # Combine with historical snapshots
+                            if all_snapshots.empty:
+                                all_snapshots = latest_snapshot
+                            else:
+                                all_snapshots = pd.concat([all_snapshots, latest_snapshot], ignore_index=True)
+                    except FileNotFoundError:
+                        # Latest snapshot not found, continue with historical only
+                        pass
+                    
+                    # Debug: Show unique dates to help diagnose issues
+                    if not all_snapshots.empty and 'snapshot_date' in all_snapshots.columns:
+                        unique_dates = sorted(all_snapshots['snapshot_date'].unique())
+                        st.caption(f"📅 Found {len(unique_dates)} unique snapshot dates")
                     
                     if not all_snapshots.empty and 'geography' in all_snapshots.columns:
                         # Group by date and geography

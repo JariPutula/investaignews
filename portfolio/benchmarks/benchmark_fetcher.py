@@ -51,10 +51,11 @@ def fetch_benchmark_data(
                 ticker,
                 start=start_date.strftime("%Y-%m-%d"),
                 end=end_date.strftime("%Y-%m-%d"),
-                progress=False
+                progress=False,
+                auto_adjust=True
             )
         else:
-            data = yf.download(ticker, period=period, progress=False)
+            data = yf.download(ticker, period=period, progress=False, auto_adjust=True)
         
         if data is None or data.empty:
             return None

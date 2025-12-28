@@ -94,6 +94,11 @@ SECTOR_KEYWORDS = {
                         'WIDE MOAT', 'SMALL CAP', 'INDEKSI', 'WORLD', 'MSCI EMU',
                         'ALL-WORLD', 'TOTAL MARKET', 'GLOBAL INDEX']
     },
+    'Fixed Income': {
+        'keywords': [],
+        'etf_patterns': ['BOND', 'AGGREGATE BOND', 'FIXED INCOME', 'CORPORATE BOND',
+                        'GOVERNMENT BOND', 'TREASURY', 'SOVEREIGN']
+    },
     'Thematic ETF': {
         'keywords': [],
         'etf_patterns': ['AGEING', 'AUTOMATION', 'ROBOTICS', 'CLEAN ENERGY', 'QUANTUM',

@@ -39,10 +39,10 @@ def get_exchange_rate(
             # Fetch historical rate for specific date
             start_date = date.strftime("%Y-%m-%d")
             end_date = (date + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-            data = yf.download(ticker, start=start_date, end=end_date, progress=False)
+            data = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
         else:
             # Fetch current rate
-            data = yf.download(ticker, period="1d", progress=False)
+            data = yf.download(ticker, period="1d", progress=False, auto_adjust=True)
         
         if data is None or data.empty:
             return None
