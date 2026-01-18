@@ -8,7 +8,7 @@ from typing import Optional
 
 import streamlit as st
 
-from config import DEFAULT_CSV_PATH
+from config import DEFAULT_CSV_PATH, DEFAULT_USER_NAME, DATA_DIR
 from portfolio.classification import (
     classify_geography,
     classify_sector,
@@ -17,12 +17,18 @@ from portfolio.classification import (
 
 
 @st.cache_data
-def load_data(csv_path: Optional[str] = None) -> pd.DataFrame:
+def load_data(csv_path: Optional[str] = None, user_name: Optional[str] = None) -> pd.DataFrame:
     """
     Load holdings data from CSV file.
     
+    This function maintains backward compatibility:
+    - If csv_path is provided, loads that file (old behavior)
+    - If csv_path is None, tries to load latest_assets_{user}.csv
+    - Falls back to DEFAULT_CSV_PATH if latest snapshot not found
+    
     Args:
-        csv_path: Path to CSV file. If None, uses DEFAULT_CSV_PATH from config.
+        csv_path: Path to CSV file. If None, tries latest snapshot then falls back to DEFAULT_CSV_PATH.
+        user_name: User name for snapshot loading (default: from config)
     
     Returns:
         DataFrame with holdings data
@@ -32,8 +38,20 @@ def load_data(csv_path: Optional[str] = None) -> pd.DataFrame:
         ValueError: If CSV file is empty or invalid
     """
     if csv_path is None:
-        csv_path = DEFAULT_CSV_PATH
+        # Try to load latest snapshot first
+        if user_name is None:
+            user_name = DEFAULT_USER_NAME
+        
+        try:
+            from portfolio.historical.snapshot_loader import load_latest_snapshot
+            # Load latest snapshot (will fallback to DEFAULT_CSV_PATH if not found)
+            df = load_latest_snapshot(user_name=user_name, enrich=False)
+            return df
+        except (FileNotFoundError, ImportError):
+            # Fallback to default CSV path
+            csv_path = DEFAULT_CSV_PATH
     
+    # Load from specified path (backward compatibility)
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
     

@@ -2,6 +2,8 @@
 Configuration constants for portfolio classification.
 """
 
+import os
+
 # ============================================================================
 # CLASSIFICATION CONFIGURATION - EASILY EXTENSIBLE
 # ============================================================================
@@ -29,7 +31,7 @@ GEOGRAPHY_KEYWORDS = {
         'etf_patterns': []
     },
     'Europe/Global': {
-        'keywords': ['BAE SYSTEMS', 'BAE', 'IPSEN'],
+        'keywords': ['BAE SYSTEMS', 'BAE', 'IPSEN', 'BNP PARIBAS', 'BNP'],
         'company_suffixes': ['PLC', 'SA', 'SPA', 'AS', 'ABP', 'AB', 'AG', 'SE', 'NV'],
         'etf_patterns': ['EMU', 'EUROPE', 'EURO', 'EMERGING', 'WORLD', 'GLOBAL', 'ALLWORLD']
     }
@@ -51,7 +53,8 @@ SECTOR_KEYWORDS = {
     },
     'Financial Services': {
         'keywords': ['BANCO', 'SANTANDER', 'SAMPO', 'MANDATUM', 'NORDEA', 'BANK',
-                    'JPMORGAN', 'GOLDMAN', 'MORGAN STANLEY', 'WELLS FARGO', 'CITI'],
+                    'JPMORGAN', 'GOLDMAN', 'MORGAN STANLEY', 'WELLS FARGO', 'CITI',
+                    'BNP PARIBAS', 'BNP'],
         'etf_patterns': ['FINANCIAL', 'BANK', 'INSURANCE']
     },
     'Energy/Utilities': {
@@ -91,6 +94,11 @@ SECTOR_KEYWORDS = {
                         'WIDE MOAT', 'SMALL CAP', 'INDEKSI', 'WORLD', 'MSCI EMU',
                         'ALL-WORLD', 'TOTAL MARKET', 'GLOBAL INDEX']
     },
+    'Fixed Income': {
+        'keywords': [],
+        'etf_patterns': ['BOND', 'AGGREGATE BOND', 'FIXED INCOME', 'CORPORATE BOND',
+                        'GOVERNMENT BOND', 'TREASURY', 'SOVEREIGN']
+    },
     'Thematic ETF': {
         'keywords': [],
         'etf_patterns': ['AGEING', 'AUTOMATION', 'ROBOTICS', 'CLEAN ENERGY', 'QUANTUM',
@@ -99,6 +107,25 @@ SECTOR_KEYWORDS = {
     }
 }
 
-# Default CSV file path
-DEFAULT_CSV_PATH = 'holdings_from_op.csv'
+# Data directory for asset files
+DATA_DIR = 'data'
+
+# Default CSV file path (fallback for backward compatibility)
+DEFAULT_CSV_PATH = os.path.join(DATA_DIR, 'holdings_from_op.csv')
+
+# ============================================================================
+# HISTORICAL PERFORMANCE CONFIGURATION
+# ============================================================================
+
+# User/portfolio name (used in snapshot file naming)
+DEFAULT_USER_NAME = "jari"
+
+# Snapshot file naming patterns
+# Historical: {DDMMYYYY}_assets_{user}.csv (e.g., 20112025_assets_jari.csv)
+# Latest: latest_assets_{user}.csv (e.g., latest_assets_jari.csv)
+LATEST_SNAPSHOT_PATTERN = "latest_assets_{user}.csv"
+HISTORICAL_SNAPSHOT_PATTERN = "{date}_assets_{user}.csv"
+
+# Date format for parsing snapshot filenames (DDMMYYYY)
+SNAPSHOT_DATE_FORMAT = "%d%m%Y"
 

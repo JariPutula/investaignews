@@ -1,10 +1,11 @@
 ---
-title: Investblank
-emoji: 🐠
-colorFrom: red
-colorTo: pink
+title: Investaiappver2
+emoji: 📈
+colorFrom: blue
+colorTo: indigo
 sdk: docker
 pinned: false
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+# Investaiappver2
+Tämä sovellus on julkaistu Hugging Face Spaceen Dockerin avulla.

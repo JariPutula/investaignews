@@ -108,9 +108,15 @@ def classify_sector(name) -> str:
             if pattern in name_upper:
                 return 'Broad Market ETF'
     
+    # Check Fixed Income ETFs (bonds) before thematic
+    if is_etf:
+        for pattern in SECTOR_KEYWORDS['Fixed Income']['etf_patterns']:
+            if pattern in name_upper:
+                return 'Fixed Income'
+    
     # Check all sectors
     for sector, config in SECTOR_KEYWORDS.items():
-        if sector in ['Broad Market ETF', 'Thematic ETF']:
+        if sector in ['Broad Market ETF', 'Fixed Income', 'Thematic ETF']:
             continue  # Already checked or will check later
         
         # Check keywords
