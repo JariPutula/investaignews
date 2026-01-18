@@ -8,10 +8,10 @@ This utility converts OP Bank HTML export files (`Arvopaperisäilytys - Sijoituk
 
 - ✅ Parses HTML table structure from OP Bank export
 - ✅ Maps Finnish column names to English using `nimimap.txt`
-- ✅ Automatically infers ticker symbols from company names
 - ✅ Supports manual ticker mapping via `ticker_mapping.txt`
 - ✅ Creates timestamped output files (doesn't overwrite existing files)
 - ✅ Validates data and reports missing tickers
+- ✅ **Automatically recognized by the dashboard** - `_from_html` files are included in historical snapshots
 
 ## Usage
 
@@ -42,6 +42,7 @@ python convert_html_to_csv.py path/to/your/file.htm
 - Format: Same as `latest_assets_jari.csv`
 - Columns: `ticker`, `name`, `quantity`, `purchase_price_eur`, `purchase_total_eur`, `market_price_eur`, `market_total_eur`, `change_eur`, `change_pct`
 - Location: `data/{DDMMYYYY}_assets_jari_from_html.csv` (timestamped to avoid overwriting)
+- **Automatic Recognition**: Files with `_from_html` suffix are automatically recognized by the dashboard as historical snapshots
 
 ## Ticker Mapping
 
@@ -136,7 +137,10 @@ The converter maps Finnish column names to English:
    - Add mappings to `data/ticker_mapping.txt`
    - Re-run converter if needed
 6. **Verify Data**: Compare with existing `latest_assets_jari.csv` to ensure structure matches
-7. **Rename if Correct**: Once verified, you can rename the file to replace `latest_assets_jari.csv` (if desired)
+7. **Done!** The `_from_html` file is automatically recognized by the dashboard:
+   - Historical snapshots: `{DDMMYYYY}_assets_jari_from_html.csv` files are included in historical performance tracking
+   - Latest snapshot: If you create `latest_assets_jari_from_html.csv`, it will be used as the latest snapshot (if `latest_assets_jari.csv` doesn't exist)
+   - **Optional**: You can still rename the file to remove `_from_html` suffix if you prefer standard naming
 
 ## Example Output
 
@@ -175,14 +179,27 @@ To fix: Add mappings to data/ticker_mapping.txt (format: name,ticker)
 
 ## Integration with Dashboard
 
-After conversion:
-1. Review the generated CSV file
-2. Verify all tickers are filled (or acceptable to leave empty)
-3. Compare structure with `latest_assets_jari.csv`
-4. Once satisfied, you can:
-   - Use the timestamped file as a historical snapshot
-   - Rename it to `latest_assets_jari.csv` (after backing up the old one)
-   - Or keep both files for comparison
+**The dashboard automatically recognizes `_from_html` files!** No manual renaming required.
+
+### Historical Snapshots
+- Files like `{DDMMYYYY}_assets_jari_from_html.csv` are **automatically included** in historical performance tracking
+- They appear in the "📊 Historical Performance" tab
+- The date is parsed from the filename (format: `DDMMYYYY`)
+
+### Latest Snapshot
+- If you create `latest_assets_jari_from_html.csv`, it will be used as the latest snapshot
+- The dashboard prefers `latest_assets_jari.csv` if both exist
+- If only `latest_assets_jari_from_html.csv` exists, it will be used automatically
+
+### Workflow After Conversion
+
+1. **Review the generated CSV file** - Check that data looks correct
+2. **Verify all tickers are filled** - Add missing tickers to `ticker_mapping.txt` if needed
+3. **Compare structure** - Ensure columns match `latest_assets_jari.csv`
+4. **Done!** The file is automatically recognized:
+   - Historical snapshots: Included in performance tracking
+   - Latest snapshot: Can be used if you create `latest_assets_jari_from_html.csv`
+5. **Optional**: Rename to remove `_from_html` suffix if you prefer standard naming (not required)
 
 ## Dependencies
 
@@ -203,4 +220,5 @@ pip install beautifulsoup4
 - Use `generate_ticker_mapping.py` to create initial mapping from existing CSV
 - The converter handles Finnish number formatting (comma as decimal separator, non-breaking spaces as thousand separators)
 - Company names in the mapping file must match exactly (case-insensitive) as they appear in the HTML
+- **Automatic recognition**: Files with `_from_html` suffix are automatically recognized by the dashboard - no manual renaming needed!
 

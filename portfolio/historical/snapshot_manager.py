@@ -20,8 +20,11 @@ def parse_snapshot_date(filename: str, user_name: str) -> Optional[datetime]:
     """
     Parse date from snapshot filename.
     
-    Expected format: {DDMMYYYY}_assets_{user}.csv
+    Expected formats:
+    - {DDMMYYYY}_assets_{user}.csv
+    - {DDMMYYYY}_assets_{user}_from_html.csv
     Example: 20112025_assets_jari.csv -> 2025-11-20
+    Example: 21122025_assets_jari_from_html.csv -> 2025-12-21
     
     Args:
         filename: Name of the snapshot file
@@ -30,8 +33,9 @@ def parse_snapshot_date(filename: str, user_name: str) -> Optional[datetime]:
     Returns:
         Parsed datetime object, or None if parsing fails
     """
-    # Pattern: {DDMMYYYY}_assets_{user}.csv
-    pattern = r"(\d{8})_assets_" + re.escape(user_name) + r"\.csv"
+    # Pattern: {DDMMYYYY}_assets_{user}.csv or {DDMMYYYY}_assets_{user}_from_html.csv
+    # Match both patterns (with or without _from_html suffix)
+    pattern = r"(\d{8})_assets_" + re.escape(user_name) + r"(?:_from_html)?\.csv"
     match = re.match(pattern, filename)
     
     if not match:
@@ -88,22 +92,34 @@ def get_latest_snapshot_path(user_name: str, directory: Optional[str] = None) ->
     """
     Get path to the latest snapshot file.
     
+    Checks for:
+    1. latest_assets_{user}.csv (standard)
+    2. latest_assets_{user}_from_html.csv (from HTML converter)
+    
     Args:
         user_name: User name (e.g., "jari")
         directory: Directory to search (default: current directory)
     
     Returns:
         Path to latest snapshot file, or None if not found
+        Prefers standard filename over _from_html version
     """
     if directory is None:
         directory = os.path.join(os.getcwd(), DATA_DIR)
     
-    # Pattern: latest_assets_{user}.csv
+    # First try standard pattern: latest_assets_{user}.csv
     filename = LATEST_SNAPSHOT_PATTERN.format(user=user_name)
     filepath = os.path.join(directory, filename)
     
     if os.path.exists(filepath):
         return filepath
+    
+    # Fallback to _from_html version: latest_assets_{user}_from_html.csv
+    filename_html = filename.replace('.csv', '_from_html.csv')
+    filepath_html = os.path.join(directory, filename_html)
+    
+    if os.path.exists(filepath_html):
+        return filepath_html
     
     return None
 

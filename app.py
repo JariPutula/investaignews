@@ -120,7 +120,16 @@ def calculate_correlation_matrix(df):
 
         for t in tickers_list:
             try:
-                data = yf.download(t, period=period, interval=interval, progress=False, threads=False, auto_adjust=True)
+                # Suppress stderr temporarily to avoid HTTP 404 error messages from yfinance
+                import sys
+                import io
+                from contextlib import redirect_stderr
+                
+                # Capture stderr to suppress HTTP error messages (404, etc.)
+                stderr_capture = io.StringIO()
+                with redirect_stderr(stderr_capture):
+                    data = yf.download(t, period=period, interval=interval, progress=False, threads=False, auto_adjust=True)
+                
                 if data is None or data.empty:
                     failed.append(t)
                     continue
@@ -139,7 +148,8 @@ def calculate_correlation_matrix(df):
                     success.append(t)
                 else:
                     failed.append(t)
-            except Exception:
+            except Exception as e:
+                # Track failed tickers (will be displayed to user)
                 failed.append(t)
 
         if len(series_list) == 0:
@@ -1127,6 +1137,20 @@ with tab4:
     
     # Calculate correlation matrix
     corr_matrix = calculate_correlation_matrix(df)
+    
+    # Display failed tickers prominently if any
+    try:
+        dbg = CORR_DEBUG
+        failed_tickers = dbg.get('fetch_failed', [])
+        if failed_tickers:
+            st.warning(
+                f"⚠️ **Tickers not found on Yahoo Finance:** {', '.join(failed_tickers)}\n\n"
+                f"These tickers were excluded from the correlation matrix calculation. "
+                f"This may be due to incorrect ticker symbols, delisted stocks, or data unavailability."
+            )
+    except Exception:
+        pass
+    
     # Show debug diagnostics about ticker detection / price fetch
     try:
         dbg = CORR_DEBUG
