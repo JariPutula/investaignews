@@ -192,10 +192,27 @@ def get_portfolio_value_over_time(
         try:
             latest_snapshot = load_latest_snapshot(user_name, directory, enrich=False, fallback_to_default=False)
             if not latest_snapshot.empty:
-                # Use current date for latest snapshot if no date is set
-                if 'snapshot_date' not in latest_snapshot.columns or latest_snapshot['snapshot_date'].isna().all():
-                    from datetime import datetime
-                    latest_snapshot['snapshot_date'] = datetime.now()
+                # Always use current date/time for latest snapshot to ensure uniqueness.
+                # This prevents duplication when grouping by date if a historical snapshot 
+                # exists with the same date. The latest snapshot represents the current state,
+                # so using datetime.now() is semantically correct.
+                from datetime import datetime
+                latest_date = datetime.now()
+                latest_snapshot['snapshot_date'] = latest_date
+                
+                # Remove any existing snapshot with the same date to prevent double-counting.
+                # This handles edge cases where a historical snapshot might have been created
+                # with today's date (e.g., if latest_assets_jari.csv was copied from a 
+                # historical snapshot file with today's date).
+                if not all_snapshots.empty:
+                    # Convert snapshot_date to datetime for comparison
+                    all_snapshots['snapshot_date'] = pd.to_datetime(all_snapshots['snapshot_date'])
+                    latest_date_dt = pd.to_datetime(latest_date)
+                    
+                    # Remove any snapshots with matching dates (keep only the latest snapshot)
+                    all_snapshots = all_snapshots[
+                        pd.to_datetime(all_snapshots['snapshot_date']) != latest_date_dt
+                    ]
                 
                 # Combine with historical snapshots
                 if all_snapshots.empty:
