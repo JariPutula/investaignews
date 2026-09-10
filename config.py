@@ -25,7 +25,7 @@ GEOGRAPHY_KEYWORDS = {
         'etf_patterns': ['USA', 'US', 'AMERIKKA']
     },
     'Finland': {
-        'keywords': ['DIGIA', 'KOJAMO', 'MANDATUM', 'NOKIA', 'SAMPO', 
+        'keywords': ['DIGIA', 'KOJAMO', 'LUMO KODIT', 'MANDATUM', 'NOKIA', 'SAMPO', 
                     'TERVEYSTALO', 'UPM', 'FORTUM', 'ORION', 'NORDEA'],
         'company_suffixes': ['OYJ'],
         'etf_patterns': []
@@ -63,7 +63,7 @@ SECTOR_KEYWORDS = {
         'etf_patterns': ['ENERGY', 'CLEAN ENERGY', 'UTILITIES', 'OIL', 'GAS']
     },
     'Real Estate': {
-        'keywords': ['KOJAMO', 'REIT', 'REAL ESTATE', 'PROPERTY'],
+        'keywords': ['KOJAMO', 'LUMO KODIT', 'REIT', 'REAL ESTATE', 'PROPERTY'],
         'etf_patterns': ['REAL ESTATE', 'PROPERTY', 'REIT']
     },
     'Consumer Discretionary': {

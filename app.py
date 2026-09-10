@@ -289,7 +289,7 @@ def get_openai_client():
         except Exception:
             return None, api_key
 
-def generate_ai_suggestions(df, user_goals, risk_profile, model_name="gpt-4o-mini"):
+def generate_ai_suggestions(df, user_goals, risk_profile, model_name="gpt-5.6-terra"):
     """Generate dynamic AI suggestions using OpenAI based on portfolio context."""
     client, api_key = get_openai_client()
     if not api_key:
@@ -644,7 +644,12 @@ with tab2:
         with colk2:
             model_name = st.selectbox(
                 "Model",
-                options=["gpt-5", "gpt-5-mini", "gpt-4.1-mini"],
+                options=[
+                    "gpt-5.6-terra",
+                    "gpt-5.6-luna",
+                    "gpt-5.6-sol",
+                    "gpt-6-astra",
+                ],
                 index=0
             )
 
