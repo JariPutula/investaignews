@@ -25,3 +25,6 @@ Thumbs.db
 # Secrets (examples)
 .env
 .streamlit/secrets.toml
+
+# Downloaded financial source snapshots and generated learning summaries
+data/research/
