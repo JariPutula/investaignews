@@ -2,6 +2,8 @@
 
 14.11.2026 | Suunnitelma 2 | Käytännön työohje
 
+**Päivitys 15.11.2026:** Microsoftin harjoitus on nyt osa yhteistä Microsoftin ja Coca-Colan oppimisnäkymää. Tämä ohje säilyy kolmen peruslaskelman harjoituksena. Yhtiövertailun ja lisätunnuslukujen ajantasainen ohje on instructions/C2_YHTIOVERTAILU.md.
+
 ## Tavoite ja rajaus
 
 Opetellaan sijoitusanalyysin kolme peruslaskelmaa Microsoftin neljän viimeisimmän julkaistun, vertailukelpoisen tilikauden avulla. Käyttäjän ei tarvitse tuntea laskelmia etukäteen. Näkymä näyttää lähtötiedot, kaavan, tuloksen, selityksen ja lähteen jokaiselle laskelmalle.
@@ -23,10 +25,10 @@ Viiden yhtiön ryhmä on opetuksen lähtöjoukko, ei ostosuositus tai markkinaa 
 Microsoftin vuosien 2023–2026 luvut on haettu ja tallennettu paikallisesti 14.11.2026. Ensimmäinen näkymä ei tarvitse uutta verkkohakua tai API-avainta. Aja projektikansiossa PowerShellissä:
 
 ```powershell
-& .\.venv-run\Scripts\python.exe -m streamlit run pages/01_Microsoft.py
+& .\.venv-run\Scripts\python.exe -m streamlit run pages/01_Yhtioanalyysi.py
 ```
 
-Avaa selaimessa Streamlitin ilmoittama paikallinen osoite, yleensä http://localhost:8501. Valitse ensin Liikevaihdon kasvu ja avaa Näytä laskenta. Sama Microsoft-sivu löytyy myös alkuperäisen app.py-sovelluksen Streamlit-sivuvalikosta. Jos sovellus oli avoinna sivua lisättäessä, käynnistä se tarvittaessa uudelleen.
+Avaa selaimessa Streamlitin ilmoittama paikallinen osoite, yleensä http://localhost:8501. Valitse yhtiöksi Microsoft ja avaa Kasvu-välilehdeltä Näytä laskenta. Sama Yhtioanalyysi-sivu löytyy alkuperäisen app.py-sovelluksen Streamlit-sivuvalikosta. Jos sovellus oli avoinna sivua nimettäessä uudelleen, käynnistä se tarvittaessa uudelleen.
 
 Tallennetun aineiston saa tulostettua myös ilman selainta ja verkkoyhteyttä:
 
@@ -50,7 +52,7 @@ Alkuperäiset SEC-vastaukset ja lähdemetadata tallentuvat data/research/msft/ra
 - [x] Kolme laskelmaa ja Näytä laskenta -osiot on toteutettu.
 - [ ] Käyttäjä on käynyt ensimmäisen harjoituksen läpi.
 
-Toteutus sisältää rajatun SEC-haun, paikallisen aineiston ja oppimisnäkymän. Käyttäjän oma ensimmäinen harjoitus on seuraava vaihe. Viiden yhtiön vertailua tai automaattista seulaa ei vielä ole toteutettu.
+Toteutus sisältää yhteisen SEC-haun, paikallisen aineiston ja kahden yhtiön oppimisnäkymän. Viiden yhtiön vertailua tai automaattista seulaa ei vielä ole toteutettu. Käyttäjä voi jatkaa kolmen perusluvun harjoitusta ja avata lisäluvut omaan tahtiin.
 
 ## Ensimmäisen harjoituksen laskelmat
 

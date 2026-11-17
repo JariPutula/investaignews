@@ -51,7 +51,7 @@ class NumberedCanvas(canvas.Canvas):
             self.__dict__.update(state)
             self.setFont('Arial', 8)
             self.setFillColor(colors.HexColor('#555555'))
-            self.drawString(48, 27, 'Kehityssuunnitelma  |  14.11.2026')
+            self.drawString(48, 27, 'Kehityssuunnitelma  |  15.11.2026')
             self.drawRightString(A4[0]-48, 27, f'{self._pageNumber} / {page_count}')
             super().showPage()
         super().save()

@@ -2,29 +2,29 @@
 
 ## C Yhtiöanalyysin opettelu A Salkun riskit B Omistusten seuranta
 
-14.11.2026 | Projektiversio investaignews | Suunnitelma 2
+15.11.2026 | Projektiversio investaignews | Suunnitelma 3
 
 **Tavoite:** opetellaan sijoitusanalyysin laskelmia vähitellen ja rakennetaan samalla ymmärrettävä sovellus. Aloitetaan Microsoftin neljästä tilikaudesta ja kolmesta laskelmasta. Jokaisesta näytetään lähtöluvut, kaava, selitys ja lähde. USA:n yhtiöihin rajattu seula tulee mukaan vasta oppimispolun myöhemmässä vaiheessa.
 
-**Ensimmäinen rajaus:** yksi USA-yhtiö, raportoidut vuosiluvut ja maksuttomat lähteet. Erillisten talousdatatilausten tavoitekulu on 0 euroa kuukaudessa. Tekoälyn ja mahdollisten hakupalvelujen kulut käsitellään erikseen, kun ne otetaan käyttöön. Eurooppa, automaattiset seulontarajat ja ajastus jäävät myöhemmiksi.
+**Nykyinen rajaus:** Microsoft ja Coca-Cola, raportoidut vuosiluvut ja maksuttomat lähteet. Aloitus säilyy kolmessa peruslaskelmassa, joita täydentävät avattavat lisätunnusluvut. Talousdatatilaukset maksavat alussa 0 euroa kuukaudessa. Tekoäly, Eurooppa, automaattinen seula ja ajastus jäävät myöhemmiksi.
 
 ## Mitä nykyisestä sovelluksesta voi käyttää
 
 | Nykyinen osa | Hyödynnettävä pohja | Ensimmäinen lisäys |
 | --- | --- | --- |
-| Streamlit ja Plotly | Käyttöliittymä ja kuvaajat | Yhden yhtiön oppimisnäkymä |
+| Streamlit ja Plotly | Käyttöliittymä ja kuvaajat | Yhtiövalinta ja rinnakkainen vertailu |
 | Salkun CSV ja historiakuvat | Myöhempi yhteys omistuksiin | C:n harjoitus toimii itsenäisesti |
 | News Sentinel | Myöhemmin uutishaku | Ensin luvut ja virallinen vuosiraportti |
 | Portfolio-moduulit | Nykyinen salkkuanalyysi | Erilliset selitettävät yhtiölaskelmat |
 
-Microsoftin C1-oppimisnäkymä ja ohjelmallinen SEC-haku on nyt toteutettu. Vuosien 2023–2026 lähtöluvut on tallennettu ja tarkistettu vuosiraporteista. Numeerinen yhtiöseula ja rahastojen läpivalaisu ovat myöhempiä vaiheita. Uutisagentti käsittelee edelleen otsikoita ja hakukatkelmia; nykyisten riskimittarien tuottoprosentteihin perustuvaa korvikelaskentaa ei käytetä C:n laskelmissa.
+Microsoftin C1-harjoitus ja C2:n kahden yhtiön vertailu on toteutettu. Microsoftilta ovat mukana vuodet 2023–2026 ja Coca-Colalta 2022–2025. Näkymässä on avattavat Tietoa-selitykset sekä laskelmien lähteet. Seula ja rahastojen läpivalaisu ovat myöhempiä vaiheita. C:n laskenta on erillään vanhoista salkun riskimittareista.
 
 **Tietojen tuoreus:** nykyinen data/latest_assets_jari.csv sisältää 46 omistusriviä ja vastaa 10.9.2026 päivättyä salkkukuvaa. Sen käyttäminen ei ole ensimmäisen C-harjoituksen edellytys. Latest-tiedoston päiväyskäsittely korjataan ennen historiatietojen käyttöä sijoituspäätösten tukena.
 
 ## Etenemisjärjestys
 
 1. Microsoftin neljä tilikautta ja kolme selitettävää laskelmaa.
-2. Viiden USA-yhtiön vertailu samoilla määritelmillä.
+2. Microsoftin ja Coca-Colan vertailu; sen jälkeen laajennus viiteen USA-yhtiöön.
 3. Yksi vuosiraporttiin ja tarkistettuihin lukuihin perustuva tekoälyanalyysi.
 4. Laajennus 20 yhtiöön, sitten 50–100 yhtiöön ja lopulta noin 200 yhtiön seulaan.
 5. A:n salkkuriskit ja B:n omistusten seuranta erillisinä myöhempinä kehitysvaiheina.
@@ -121,7 +121,9 @@ Jokaisesta tunnusluvusta voi avata käytetyt tilikaudet, lähtöluvut, laskukaav
 
 Esimerkiksi suuret investoinnit voivat pienentää vapaata kassavirtaa kasvua rakennettaessa. Kasvava liikevaihto ei puolestaan yksin osoita kannattavuuden paranemista. Sovellus näyttää kehityksen rinnakkain ja auttaa muodostamaan kysymyksiä.
 
-## Arvostus opetellaan myöhemmin
+## Täydentävät tunnusluvut ja arvostus
+
+C2 lisää brutto- ja nettomarginaalin, vapaan kassavirran marginaalin, investointiasteen sekä lyhyen aikavälin maksuvalmiussuhteen. Niiden määritelmä, laskenta ja tulkinnan rajat avautuvat Tietoa-painikkeista. Yleisiä osto- tai hylkäysrajoja ei anneta.
 
 Nettovelka/EBITDA, EV/EBIT, FCF-tuotto ja osakekohtaiset tunnusluvut lisätään vasta peruslaskelmien jälkeen. Niiden yhteydessä opetellaan velan, osakemäärän, hintatiedon ja käytettävän raportointikauden merkitys. Ensimmäinen harjoitus ei vaadi osakekurssia tai osakekohtaisten lukujen laskentaa.
 
@@ -176,7 +178,7 @@ Edetään yksi tarkistettava tulos kerrallaan. Vaiheiden välissä katsotaan yhd
 | Vaihe | Valmis tulos | Alustava työarvio |
 | --- | --- | --- |
 | C1 Microsoft | Neljä tilikautta, kolme laskelmaa ja avattavat selitykset | 2–4 pv |
-| C2 Viisi yhtiötä | Samat laskelmat ja liiketoimintojen erojen vertailu | lisäksi 1–3 pv |
+| C2 Yhtiövertailu | Microsoft ja Coca-Cola valmiina; laajennus viiteen yhtiöön seuraavaksi | lisäksi 1–3 pv |
 | C3 Yksi tekoälyanalyysi | Lähteisiin perustuvat havainnot, selitykset ja vastaväitteet | lisäksi 1–2 pv |
 | C4 Laajentaminen | 20 yhtiön tarkistus, sitten 50–100 ja noin 200 yhtiön seula | arvioidaan C2:n jälkeen |
 | A Salkkuriskit | Rahastojen läpivalaisu ja skenaariot | myöhemmin |
@@ -230,7 +232,7 @@ Seuraavat luvut ovat keksittyjä esimerkkejä, eivät Microsoftin talouslukuja.
 
 Käyttäjä löytää kunkin luvun lähteestä, pystyy seuraamaan kaavaa ja osaa kuvata tuloksen merkityksen omin sanoin. Sovellus näyttää samat tulokset uudelleen samalla aineistolla. Jokaisen laskelman yhteydessä on vähintään yksi tulkinnan rajoite. Puuttuvaa tai epäselvää lukua ei arvata.
 
-**Toteutettu 14.11.2026:** ohjelmallinen SEC-haku, vuosien 2023–2026 aineisto ja Microsoftin oppimisnäkymä. Käynnistä projektikansiossa: .venv-run/Scripts/python.exe -m streamlit run pages/01_Microsoft.py. Tarkka työohje ja tilanne ovat tiedostossa instructions/C1_DATAKOE.md.
+**Toteutettu 15.11.2026:** yhteinen SEC-haku, Microsoftin ja Coca-Colan luvut, yhtiövertailu ja Tietoa-ikkunat. Käynnistä: .venv-run/Scripts/python.exe -m streamlit run pages/01_Yhtioanalyysi.py. Ohjeet ovat tiedostoissa instructions/C1_DATAKOE.md ja instructions/C2_YHTIOVERTAILU.md.
 
 <!-- pagebreak -->
 
@@ -256,7 +258,7 @@ Aluksi arvioidaan laskelmien oikeellisuutta ja käyttäjän ymmärrystä. Käytt
 
 ## Lähteet ja tarkistuspäivä
 
-Verkkolähteet tarkistettu keskustelun yhteydessä 14.11.2026. Yhtiökohtaiset alkuperäisraportit ja tarkat tilikaudet kirjataan ensimmäisen aineistohaun yhteydessä. Työmäärät ja etenemisvaiheet ovat tämän suunnitelman arvioita.
+Verkkolähteet tarkistettu keskustelun yhteydessä 14.–15.11.2026. Yhtiöiden lähderaportit, tilikaudet ja hakupäivät säilyvät aineistossa. Työmäärät ja etenemisvaiheet ovat tämän suunnitelman arvioita.
 
 [1] SEC EDGAR Application Programming Interfaces. Raportointihistoria ja rakenteinen talousdata ilman API-avainta. https://www.sec.gov/search-filings/edgar-application-programming-interfaces
 
@@ -266,8 +268,10 @@ Verkkolähteet tarkistettu keskustelun yhteydessä 14.11.2026. Yhtiökohtaiset a
 
 **Projektihavainnot:** app.py; config.py; news_sentinel/agent.py; portfolio/classification.py ja risk_metrics.py; portfolio/historical/snapshot_loader.py sekä data/latest_assets_jari.csv. A-osion Amazon-esimerkki perustuu 10.9.2026 salkkukuvaan. Se ei ole tämänhetkinen riskiarvio.
 
-**Seuraava askel:** avaa toteutettu Microsoft-näkymä ja käy ensin liikevaihdon vuosikasvu läpi. Lähdeluvut on haettu ohjelmallisesti; oppiminen kohdistuu laskelman ja tulkinnan ymmärtämiseen. Muihin yhtiöihin laajennetaan myöhemmin. Microsoftin raportit ovat lähteissä [4–5].
+**Seuraava askel:** vertaa yhtiöiden vuoden 2025 lukuja, tarkista tilikaudet ja avaa tunnuslukujen selitykset. Coca-Colan vuosien 2024–2025 rahavirtojen poikkeukselliset maksut on merkitty lähteistettyinä huomioina [6]. Yksittäinen tunnusluku ei ratkaise sijoituksen laatua.
 
 [4] Microsoftin vuosiraportti 2026. https://www.microsoft.com/investor/reports/ar26/index.html
 
 [5] Microsoftin vuosiraportti 2025. https://www.microsoft.com/investor/reports/ar25/index.html
+
+[6] Coca-Colan vuosiraportti 2025. https://investors.coca-colacompany.com/filings-reports/all-sec-filings/content/0001628280-26-010047/ko-20251231.htm

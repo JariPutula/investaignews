@@ -128,7 +128,7 @@ class MicrosoftSnapshotTests(unittest.TestCase):
         raw = json.dumps(example_payload()).encode()
         with TemporaryDirectory() as directory:
             location = Path(directory)
-            with patch("market_data.sec_microsoft.download_companyfacts", return_value=raw) as download:
+            with patch("market_data.sec.download_companyfacts", return_value=raw) as download:
                 first = build_report(data_dir=location, user_agent="test contact@example.com", as_of=date(2026, 11, 14))
                 second = build_report(data_dir=location, offline=True, as_of=date(2026, 11, 14))
                 self.assertEqual(first, second)
@@ -140,7 +140,7 @@ class MicrosoftSnapshotTests(unittest.TestCase):
         raw = json.dumps(example_payload()).encode()
         with TemporaryDirectory() as directory:
             location = Path(directory)
-            with patch("market_data.sec_microsoft.download_companyfacts", return_value=raw):
+            with patch("market_data.sec.download_companyfacts", return_value=raw):
                 report = build_report(data_dir=location, as_of=date(2026, 11, 14))
             (location / report["raw_file"]).write_bytes(raw + b" ")
             with self.assertRaisesRegex(SecDataError, "tarkistussumma"):
@@ -150,10 +150,10 @@ class MicrosoftSnapshotTests(unittest.TestCase):
         raw = json.dumps(example_payload()).encode()
         with TemporaryDirectory() as directory:
             location = Path(directory)
-            with patch("market_data.sec_microsoft.download_companyfacts", return_value=raw):
+            with patch("market_data.sec.download_companyfacts", return_value=raw):
                 build_report(data_dir=location, as_of=date(2026, 11, 14))
             before = (location / "annual_metrics.json").read_bytes()
-            with patch("market_data.sec_microsoft.download_companyfacts", return_value=b"<html>error</html>"):
+            with patch("market_data.sec.download_companyfacts", return_value=b"<html>error</html>"):
                 with self.assertRaises(SecDataError):
                     build_report(data_dir=location, refresh=True)
             self.assertEqual((location / "annual_metrics.json").read_bytes(), before)
