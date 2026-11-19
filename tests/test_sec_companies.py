@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from market_data.companies import get_company
-from market_data.financial_metrics import calculate_metrics
+from market_data.financial_metrics import calculate_metrics, cash_flow_bridge
 from market_data.sec import METRICS, SecDataError, build_report, comparison_rows, extract_annual_metrics, load_report
 
 
@@ -29,7 +29,8 @@ def payload_for(ticker):
             if not definition.get("instant"):
                 fact["start"] = start.isoformat()
             series.append(fact)
-        facts[definition["tags"][0]] = {"units": {"USD": series}}
+        tag = company.capex_tags[0] if key == "capex" else definition["tags"][0]
+        facts[tag] = {"units": {"USD": series}}
     return {"cik": company.cik, "entityName": company.name, "facts": {"us-gaap": facts}}
 
 
@@ -78,6 +79,25 @@ class AdditionalMetricTests(unittest.TestCase):
 
 
 class CompanyPeriodTests(unittest.TestCase):
+    def test_nvidia_52_and_53_week_years_and_actual_end_dates(self):
+        company = get_company("NVDA")
+        self.assertEqual(tuple(map(str, company.period(2025))), ("2024-01-29", "2025-01-26"))
+        start, end = company.period(2027)
+        self.assertEqual((end-start).days+1, 371)
+        report = extract("NVDA")
+        self.assertEqual(report["rows"][-1]["capex"], 12_000_000)
+        self.assertEqual(report["rows"][-1]["sources"]["capex"]["tag"], "PaymentsToAcquireProductiveAssets")
+        self.assertTrue(report["capex_includes_intangibles"])
+
+    def test_cash_flow_bridge_explains_opposing_changes_and_negative_fcf(self):
+        previous = {"operating_cash_flow": 100, "capex": 80}
+        row = {"operating_cash_flow": 120, "capex": 130}
+        bridge = cash_flow_bridge(row, previous)
+        self.assertEqual(bridge, {"operating_change": 20, "investment_change": 50, "free_cash_flow_change": -30})
+        self.assertIsNone(cash_flow_bridge({**row, "capex": None}, previous))
+        self.assertIsNone(cash_flow_bridge(row, None))
+        self.assertIsNone(calculate_metrics({**row, "net_income": -5})["cash_conversion_ratio"])
+
     def test_coca_cola_calendar_year_is_not_microsoft_fiscal_year(self):
         ko = extract("KO")
         self.assertEqual([r["fiscal_year"] for r in ko["rows"]], [2022, 2023, 2024, 2025])

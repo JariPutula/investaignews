@@ -1,5 +1,7 @@
 # C2 Microsoftin ja Coca Colan vertailu
 
+**Päivitys 17.11.2026:** vertailussa ovat nyt myös Amazon (AMZN), NVIDIA (NVDA) ja Procter & Gamble (PG). Valitse vertailtavat yhtiöt Yhtiövertailu-välilehdellä. Alla oleva alkuperäinen kahden yhtiön harjoitus toimii edelleen; viiden yhtiön kassavirtaharjoitus ja uusi tekoälytoiminto kuvataan tiedostossa [C3_KASSAVIRTA_JA_TEKOALY.md](C3_KASSAVIRTA_JA_TEKOALY.md).
+
 15.11.2026 | Yhtiöanalyysin käyttöohje
 
 ## Käynnistä ja valitse yhtiö
@@ -73,7 +75,7 @@ Uusi haku tehdään vain käyttäjän pyynnöstä valitulle yhtiölle. Yhtiön t
 | pages/01_Yhtioanalyysi.py | Streamlit-sivun käynnistystiedosto. |
 | market_data/sec_microsoft.py | Alkuperäisten Microsoft-kutsujen yhteensopivuus. |
 
-Nykyinen kausivalinta on testattu näille kahdelle kiinteään päivämäärään päättyvälle tilikaudelle. Muiden yhtiöiden lisääminen vaatii tunnisteiden, tietokenttien ja tilikausikalenterin tarkistuksen. Esimerkiksi 52/53-viikkoisia tilikausia ei vielä tueta yleisesti.
+Kausivalinta tukee Microsoftin ja P&G:n kesäkuussa päättyvää tilikautta, Amazonin ja Coca-Colan kalenterivuotta sekä NVIDIAn tammikuun viimeisenä sunnuntaina päättyvää 52/53 viikon tilikautta. Muiden yhtiöiden lisääminen vaatii edelleen tunnisteiden, tietokenttien ja tilikausikalenterin tarkistuksen. Tämä ei ole kaikkien tilikausikalentereiden yleisratkaisu.
 
 ## Tarkistukset
 

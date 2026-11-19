@@ -28,3 +28,7 @@ Thumbs.db
 
 # Downloaded financial source snapshots and generated learning summaries
 data/research/
+
+# Local C3 verification artifacts and one-off API smoke check
+tmp/c3/
+tmp/verify_c3_sources.py

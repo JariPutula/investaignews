@@ -4,6 +4,8 @@
 
 15.11.2026 | Projektiversio investaignews | Suunnitelma 3
 
+**Toteutuspäivitys 17.11.2026:** C2 on laajennettu Microsoftiin, Coca-Colaan, Amazoniin, NVIDIAan ja Procter & Gambleen. C3:n kassavirran muutoslaskelma ja yhden yhtiön lähteistetty tekoälyanalyysi on toteutettu. Amazonin ensimmäinen vuoden 2025 analyysi on tallennettu paikallisesti. Ajantasainen käyttöohje ja rajaukset: [C3_KASSAVIRTA_JA_TEKOALY.md](C3_KASSAVIRTA_JA_TEKOALY.md). Tämän suunnitelman aiemmat työmääräarviot ja 15.11.2026 PDF kuvaavat edeltävää suunnittelutilannetta.
+
 **Tavoite:** opetellaan sijoitusanalyysin laskelmia vähitellen ja rakennetaan samalla ymmärrettävä sovellus. Aloitetaan Microsoftin neljästä tilikaudesta ja kolmesta laskelmasta. Jokaisesta näytetään lähtöluvut, kaava, selitys ja lähde. USA:n yhtiöihin rajattu seula tulee mukaan vasta oppimispolun myöhemmässä vaiheessa.
 
 **Nykyinen rajaus:** Microsoft ja Coca-Cola, raportoidut vuosiluvut ja maksuttomat lähteet. Aloitus säilyy kolmessa peruslaskelmassa, joita täydentävät avattavat lisätunnusluvut. Talousdatatilaukset maksavat alussa 0 euroa kuukaudessa. Tekoäly, Eurooppa, automaattinen seula ja ajastus jäävät myöhemmiksi.

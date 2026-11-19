@@ -41,4 +41,20 @@ def calculate_metrics(row, previous=None):
         "fcf_margin_pct": ratio(fcf, revenue, percentage=True),
         "capex_to_revenue_pct": ratio(capex, revenue, percentage=True),
         "current_ratio": ratio(row.get("current_assets"), row.get("current_liabilities")),
+        "operating_cash_flow_margin_pct": ratio(cash_flow, revenue, percentage=True),
+        "cash_conversion_ratio": ratio(cash_flow, row.get("net_income")),
+    }
+
+
+def cash_flow_bridge(row, previous):
+    """Reconcile the FCF change exactly, without percentages on negative bases."""
+    keys = ("operating_cash_flow", "capex")
+    if previous is None or any(item.get(key) is None for item in (row, previous) for key in keys):
+        return None
+    operating_change = row["operating_cash_flow"] - previous["operating_cash_flow"]
+    investment_change = row["capex"] - previous["capex"]
+    return {
+        "operating_change": operating_change,
+        "investment_change": investment_change,
+        "free_cash_flow_change": operating_change - investment_change,
     }

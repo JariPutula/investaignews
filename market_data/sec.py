@@ -1,7 +1,7 @@
 """SEC Company Facts for the explicitly configured learning companies.
 
-Only full fiscal years and year-end balances are used. The two current
-companies have fixed dates; 52/53-week calendars need separate support.
+Only full fiscal years and year-end balances are used, including NVIDIA's
+52/53-week calendar. Company-specific cash investment definitions stay visible.
 """
 
 from datetime import date, datetime, timezone
@@ -11,17 +11,25 @@ import math
 from pathlib import Path
 import re
 import time
+from typing import NotRequired, TypedDict
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from market_data.companies import Company
 from market_data.financial_metrics import calculate_metrics, percentage_change, revenue_cagr
 
-METRICS = {
+class MetricDefinition(TypedDict):
+    label: str
+    tags: tuple[str, ...]
+    required: bool
+    instant: NotRequired[bool]
+
+
+METRICS: dict[str, MetricDefinition] = {
     "revenue": {"label": "Liikevaihto", "tags": ("RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"), "required": True},
     "operating_income": {"label": "Liikevoitto", "tags": ("OperatingIncomeLoss",), "required": True},
     "operating_cash_flow": {"label": "Liiketoiminnan rahavirta", "tags": ("NetCashProvidedByUsedInOperatingActivities",), "required": True},
-    "capex": {"label": "Aineelliset käyttöomaisuusinvestoinnit", "tags": ("PaymentsToAcquirePropertyPlantAndEquipment",), "required": True},
+    "capex": {"label": "Käyttöomaisuusinvestoinnit", "tags": ("PaymentsToAcquirePropertyPlantAndEquipment",), "required": True},
     "cost_of_revenue": {"label": "Myytyjen tuotteiden ja palvelujen kustannukset", "tags": ("CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"), "required": False},
     "net_income": {"label": "Emoyhtiön omistajille kuuluva nettotulos", "tags": ("NetIncomeLoss",), "required": False},
     "current_assets": {"label": "Lyhytaikaiset varat", "tags": ("AssetsCurrent",), "instant": True, "required": False},
@@ -65,7 +73,8 @@ def extract_annual_metrics(payload, *, company: Company, years=4, as_of=None):
     candidates, available_years = {}, set()
     for key, definition in METRICS.items():
         candidates[key] = {}
-        for preference, tag in enumerate(definition["tags"]):
+        tags = company.capex_tags if key == "capex" else definition["tags"]
+        for preference, tag in enumerate(tags):
             for fact in facts.get(tag, {}).get("units", {}).get("USD", []):
                 if not _valid_fact(fact, company, definition, as_of):
                     continue
@@ -106,7 +115,12 @@ def extract_annual_metrics(payload, *, company: Company, years=4, as_of=None):
         "cik": company.cik, "unit": "USD", "as_of": as_of.isoformat(),
         "source_url": company.source_url,
         "selection_policy": "Latest filed full fiscal-year USD facts and fiscal-year-end balances from 10-K or 10-K/A, as of the cutoff date.",
-        "free_cash_flow_definition": "Operating cash flow minus cash payments to acquire property, plant and equipment; capex is a positive expense.",
+        "free_cash_flow_definition": (
+            "Operating cash flow minus cash payments for property, plant, equipment and intangible assets."
+            if company.capex_includes_intangibles else
+            "Operating cash flow minus cash payments to acquire property, plant and equipment; capex is a positive expense."
+        ),
+        "capex_includes_intangibles": company.capex_includes_intangibles,
         "rows": rows, "revenue_cagr_pct": revenue_cagr(rows), "warnings": warnings, "data_notes": notes,
     }
 
@@ -180,6 +194,8 @@ def load_report(*, company: Company, data_dir=None):
         raise SecDataError("Tallennettu yhteenveto ei avaudu. Muodosta se uudelleen hakukomennolla.") from exc
     if report.get("cik") != company.cik or report.get("schema_version") != SCHEMA_VERSION:
         raise SecDataError("Tallennettu yhteenveto tarvitsee päivityksen. Muodosta luvut uudelleen paikallisesta aineistosta.")
+    for index, row in enumerate(report["rows"]):
+        row.update(calculate_metrics(row, report["rows"][index - 1] if index else None))
     return report
 
 

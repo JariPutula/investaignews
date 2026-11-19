@@ -9,8 +9,9 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from learning.metric_guide import CONTEXT, GUIDE, KO_REPORT
+from learning.metric_guide import COMPANY_CASH_NOTES, CONTEXT, GUIDE, KO_REPORT
 from market_data.companies import COMPANIES, get_company
+from market_data.financial_metrics import cash_flow_bridge
 from market_data.sec import METRICS, SecDataError, build_report, comparison_rows, load_report
 
 
@@ -71,7 +72,7 @@ def calculation(key, row, previous=None):
         value = row.get(key)
         if value is None:
             st.info("Laskentaan tarvittava tieto puuttuu tai jakaja ei ole positiivinen. Aineiston ensimmäisen vuoden vuosikasvu tarvitsee myös sitä edeltävän vuoden.")
-        elif key == "revenue_growth_pct":
+        elif key == "revenue_growth_pct" and previous is not None:
             st.write(f"({format_value(row['revenue'])} / {format_value(previous['revenue'])} − 1) × 100 = {format_value(value, 'pct')}")
             show_sources(previous, ["revenue"])
         elif key == "free_cash_flow":
@@ -81,7 +82,7 @@ def calculation(key, row, previous=None):
         elif key == "fcf_margin_pct":
             st.write(f"({format_value(row['operating_cash_flow'])} − {format_value(row['capex'])}) / {format_value(row['revenue'])} × 100 = {format_value(value, 'pct')}")
         else:
-            numerator, denominator = guide["inputs"]
+            numerator, denominator = guide["inputs"][0], guide["inputs"][1]
             multiplier = " × 100" if guide["unit"] == "pct" else ""
             st.write(f"{format_value(row[numerator])} / {format_value(row[denominator])}{multiplier} = {format_value(value, guide['unit'])}")
         st.caption("Rahamäärät laskelman esityksessä ovat miljoonia USD; varsinainen laskenta käyttää pyöristämättömiä dollarimääriä.")
@@ -90,7 +91,7 @@ def calculation(key, row, previous=None):
 
 
 def show_comparison():
-    st.subheader("Microsoft ja Coca-Cola rinnakkain")
+    st.subheader("Yhtiöt rinnakkain")
     st.write("Vertaa ensisijaisesti kehitystä ja liiketoimintamallia. Yksi korkeampi tunnusluku ei tee yrityksestä parempaa sijoitusta.")
     reports = []
     for company in COMPANIES.values():
@@ -103,9 +104,16 @@ def show_comparison():
         except SecDataError as exc:
             st.warning(f"{company.name}: {exc}")
     if len(reports) < 2:
-        st.info("Rinnakkainen vertailu tulee näkyviin, kun molempien yhtiöiden aineisto on tallennettu.")
+        st.info("Rinnakkainen vertailu tulee näkyviin, kun vähintään kahden yhtiön aineisto on tallennettu.")
         return
-    same_year = st.radio("Vertailun ajanjakso", ["Sama tilikauden päättymisvuosi", "Kummankin viimeisin tilikausi"], horizontal=True, key="comparison_mode")
+    tickers = [report["ticker"] for report in reports]
+    selected = st.multiselect("Vertailtavat yhtiöt", tickers, default=tickers,
+                             format_func=lambda ticker: COMPANIES[ticker].name, key="comparison_companies")
+    reports = [report for report in reports if report["ticker"] in selected]
+    if len(reports) < 2:
+        st.info("Valitse vähintään kaksi yhtiötä vertailuun.")
+        return
+    same_year = st.radio("Vertailun ajanjakso", ["Sama tilikauden päättymisvuosi", "Viimeisin tilikausi kustakin yhtiöstä"], horizontal=True, key="comparison_mode")
     selected_year = None
     if same_year == "Sama tilikauden päättymisvuosi":
         common_years = sorted(set.intersection(*(set(row["fiscal_year"] for row in report["rows"]) for report in reports)))
@@ -114,36 +122,63 @@ def show_comparison():
             return
         selected_year = st.selectbox("Vertailuvuosi", common_years, index=len(common_years)-1, key="comparison_year")
     compared = comparison_rows(reports, selected_year)
-    st.info("Microsoftin tilikausi päättyy kesäkuussa ja Coca-Colan joulukuussa. Sama vuosiluku ei tarkoita samaa ajanjaksoa. Tarkat jaksot näkyvät taulukossa.")
+    st.info("Microsoftin ja P&G:n tilikausi päättyy kesäkuussa, Amazonin ja Coca-Colan joulukuussa ja NVIDIAn tammikuun viimeisenä sunnuntaina. Sama vuosiluku ei tarkoita samaa ajanjaksoa. Tarkat jaksot näkyvät taulukossa.")
     with st.popover("Miksi tilikausien ero on tärkeä?"):
         st.write("Eri tilikaudet voivat sisältää erilaisen taloussuhdanteen, valuuttakurssit ja tapahtumat. Viimeisimpien tilikausien vertailussa myös vuosiluvut voivat erota. Tässä ei muodosteta yhteisen kalenterijakson osavuosilaskelmaa.")
     columns = {}
-    comparison_keys = ("revenue_growth_pct", "operating_margin_pct", "gross_margin_pct", "net_margin_pct", "fcf_margin_pct", "capex_to_revenue_pct", "current_ratio")
+    comparison_keys = ("revenue_growth_pct", "operating_margin_pct", "gross_margin_pct", "net_margin_pct", "operating_cash_flow_margin_pct", "fcf_margin_pct", "capex_to_revenue_pct", "cash_conversion_ratio", "current_ratio")
     for item in compared:
         column = {
             "Tilikausi alkaa": display_date(item["period_start"]),
             "Tilikausi päättyy": display_date(item["period_end"]),
             "Liikevaihto, milj. USD": format_value(item["revenue"]),
+            "Liiketoiminnan rahavirta, milj. USD": format_value(item["operating_cash_flow"]),
+            "Käyttöomaisuusinvestoinnit, milj. USD": format_value(item["capex"]),
             "Vapaa kassavirta, milj. USD": format_value(item["free_cash_flow"]),
         }
         column.update({GUIDE[key]["label"]: format_value(item.get(key), GUIDE[key]["unit"]) for key in comparison_keys})
         columns[item["company"]] = column
-    st.dataframe(pd.DataFrame(columns), width="stretch")
+    st.dataframe(pd.DataFrame(columns), width="stretch", key="company_comparison_table")
     for item in compared:
         st.caption(f"{item['company']}: julkaistut tiedot huomioitu päivään {display_date(item['as_of'])} asti.")
         note = CONTEXT.get((item["ticker"], item["fiscal_year"]))
         if note:
             st.caption(f"{item['company']}: {note} [Vuosiraportti]({KO_REPORT})")
-    trend_key = st.selectbox("Vertaa tunnusluvun kehitystä", ["operating_margin_pct", "fcf_margin_pct", "capex_to_revenue_pct"], format_func=lambda key: GUIDE[key]["label"], key="comparison_trend")
+        if item["ticker"] in COMPANY_CASH_NOTES:
+            st.caption(f"{item['company']}: {COMPANY_CASH_NOTES[item['ticker']]}")
+    trend_key = st.selectbox("Vertaa tunnusluvun kehitystä", ["operating_margin_pct", "fcf_margin_pct", "capex_to_revenue_pct", "operating_cash_flow_margin_pct"], format_func=lambda key: GUIDE[key]["label"], key="comparison_trend")
     points = [{"Yhtiö": report["company"], "Tilikauden päättyminen": pd.to_datetime(row["period_end"]), "Prosenttia": row.get(trend_key)} for report in reports for row in report["rows"]]
     st.plotly_chart(px.line(pd.DataFrame(points), x="Tilikauden päättyminen", y="Prosenttia", color="Yhtiö", markers=True), width="stretch")
     explain(trend_key, identity="comparison")
+
+
+def show_cash_flow_bridge(row, previous):
+    st.subheader("Miksi vapaa kassavirta muuttui?")
+    bridge = cash_flow_bridge(row, previous)
+    if bridge is None:
+        st.info("Muutoslaskelma tarvitsee kahden peräkkäisen tilikauden rahavirran ja investoinnit. Ensimmäiselle vuodelle sitä ei muodosteta.")
+        return
+    table = pd.DataFrame({
+        "Erä": ["Liiketoiminnan rahavirta", "Käyttöomaisuusinvestoinnit", "Vapaa kassavirta"],
+        str(previous["fiscal_year"]): [previous[key] / 1e6 for key in ("operating_cash_flow", "capex", "free_cash_flow")],
+        str(row["fiscal_year"]): [row[key] / 1e6 for key in ("operating_cash_flow", "capex", "free_cash_flow")],
+        "Muutos, milj. USD": [bridge[key] / 1e6 for key in ("operating_change", "investment_change", "free_cash_flow_change")],
+    })
+    st.dataframe(table, hide_index=True, width="stretch", key="cash_flow_bridge_table")
+    st.write(f"Rahavirran muutos {format_value(bridge['operating_change'])} − investointien muutos ({format_value(bridge['investment_change'])}) = vapaan kassavirran muutos {format_value(bridge['free_cash_flow_change'])} milj. USD.")
+    st.caption("Investointien kasvu vähentää vapaata kassavirtaa; investointien väheneminen kasvattaa sitä. Tämä erittely selittää laskennallisen muutoksen, ei muutoksen liiketaloudellista syytä.")
+    with st.expander("Muutoslaskelman lähteet"):
+        for item in (previous, row):
+            st.markdown(f"**Tilikausi {item['fiscal_year']}**")
+            show_sources(item, ["operating_cash_flow", "capex"])
 
 
 def render():
     st.set_page_config(page_title="Yhtiöanalyysi – opi talousluvut", page_icon="📖", layout="wide")
     st.title("Yhtiöanalyysi")
     st.write("Opettele kasvua, kannattavuutta ja rahavirtaa. Aloita kolmesta perusluvusta; tarkemmat selitykset avautuvat Tietoa-painikkeista.")
+    from learning.analysis_page import show_saved_analysis_shortcuts
+    show_saved_analysis_shortcuts()
     ticker = st.selectbox("Yhtiö", list(COMPANIES), format_func=lambda key: f"{COMPANIES[key].name} ({key})", key="learning_company")
     company = get_company(ticker)
     with st.expander("Hae tai päivitä aineisto"):
@@ -166,7 +201,9 @@ def render():
         st.info("Aineistoa ei vielä ole. Hae se yllä olevasta osiosta.")
         return
     rows = report["rows"]
-    year = st.selectbox("Tilikausi", [row["fiscal_year"] for row in rows], index=len(rows)-1, key=f"year_{ticker}")
+    year_key = f"year_{ticker}"
+    year_index = None if year_key in st.session_state else len(rows) - 1
+    year = st.selectbox("Tilikausi", [row["fiscal_year"] for row in rows], index=year_index, key=year_key)
     row = next(item for item in rows if item["fiscal_year"] == year)
     index = rows.index(row)
     previous = rows[index-1] if index else None
@@ -179,7 +216,7 @@ def render():
     st.caption("Puuttuva lähtötieto ei tarkoita nollaa. Yksittäinen mittari ei ole osto- tai myyntisuositus.")
     frame = pd.DataFrame(rows).set_index("fiscal_year")
     frame.index.name = "Tilikausi"
-    growth, profit, cash, liquidity, comparison = st.tabs(["1 Kasvu", "2 Kannattavuus", "3 Kassavirta", "4 Maksuvalmius", "5 Yhtiövertailu"])
+    growth, profit, cash, liquidity, comparison, ai = st.tabs(["1 Kasvu", "2 Kannattavuus", "3 Kassavirta", "4 Maksuvalmius", "5 Yhtiövertailu", "6 Tekoälyanalyysi"], key="learning_tab", on_change="rerun")
     with growth:
         st.subheader("Miten myynti on kehittynyt?")
         st.line_chart(frame[["revenue"]].rename(columns={"revenue": "Liikevaihto, milj. USD"}) / 1e6)
@@ -208,12 +245,18 @@ def render():
             metric_card(container, key, row, f"cash_{ticker}_{year}")
         cash_frame = frame[["operating_cash_flow", "capex", "free_cash_flow"]].rename(columns={"operating_cash_flow": "Liiketoiminnan rahavirta", "capex": "Investoinnit", "free_cash_flow": "Vapaa kassavirta"}) / 1e6
         st.bar_chart(cash_frame, stack=False)
-        st.caption("Miljoonaa USD. Investoinnit ovat aineellisiin käyttöomaisuushyödykkeisiin maksettuja menoja.")
+        st.caption("Miljoonaa USD. Investoinnit ovat käyttöomaisuusostojen rahamenoja; NVIDIAn rivi sisältää myös aineettomia hyödykkeitä.")
+        if ticker in COMPANY_CASH_NOTES:
+            st.info(COMPANY_CASH_NOTES[ticker])
+            show_sources(row, ["capex"])
+        for container, key in zip(st.columns(2), ("operating_cash_flow_margin_pct", "cash_conversion_ratio")):
+            metric_card(container, key, row, f"cash_detail_{ticker}_{year}")
+        show_cash_flow_bridge(row, previous)
         note = CONTEXT.get((ticker, year))
         if note:
             st.info(note)
             st.markdown(f"[Tarkista selitys Coca-Colan vuosiraportin rahavirtaosiosta]({KO_REPORT})")
-        for key in ("free_cash_flow", "fcf_margin_pct", "capex_to_revenue_pct"):
+        for key in ("free_cash_flow", "fcf_margin_pct", "capex_to_revenue_pct", "operating_cash_flow_margin_pct", "cash_conversion_ratio"):
             calculation(key, row)
         with st.popover("Miksi voitto ja rahavirta eroavat?"):
             st.write("Myynti voidaan kirjata tulokseen ennen maksun saamista. Investointi kuluttaa rahaa nyt, mutta sen hankintameno voi näkyä tuloksessa vähitellen poistoina. Myös varastot, asiakkaiden ja toimittajien maksuajat, veromaksut ja osakeperusteiset palkkiot vaikuttavat eroon.")
@@ -225,6 +268,9 @@ def render():
         calculation("current_ratio", row)
     with comparison:
         show_comparison()
+    with ai:
+        from learning.analysis_page import show_analysis
+        show_analysis(company, report, row, contact)
     with st.expander("Kaikki lähtöluvut ja lähdetiedot"):
         labels = {key: value["label"] for key, value in METRICS.items()}
         table = frame[list(METRICS)].rename(columns=labels) / 1e6
