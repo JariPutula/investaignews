@@ -73,7 +73,9 @@ def extract_annual_metrics(payload, *, company: Company, years=4, as_of=None):
     candidates, available_years = {}, set()
     for key, definition in METRICS.items():
         candidates[key] = {}
-        tags = company.capex_tags if key == "capex" else definition["tags"]
+        override = {"revenue": company.revenue_tags, "capex": company.capex_tags,
+                    "net_income": company.net_income_tags, "cost_of_revenue": company.cost_of_revenue_tags}.get(key)
+        tags = definition["tags"] if override is None else override
         for preference, tag in enumerate(tags):
             for fact in facts.get(tag, {}).get("units", {}).get("USD", []):
                 if not _valid_fact(fact, company, definition, as_of):
@@ -115,12 +117,13 @@ def extract_annual_metrics(payload, *, company: Company, years=4, as_of=None):
         "cik": company.cik, "unit": "USD", "as_of": as_of.isoformat(),
         "source_url": company.source_url,
         "selection_policy": "Latest filed full fiscal-year USD facts and fiscal-year-end balances from 10-K or 10-K/A, as of the cutoff date.",
-        "free_cash_flow_definition": (
+        "free_cash_flow_definition": company.capex_definition or (
             "Operating cash flow minus cash payments for property, plant, equipment and intangible assets."
             if company.capex_includes_intangibles else
             "Operating cash flow minus cash payments to acquire property, plant and equipment; capex is a positive expense."
         ),
         "capex_includes_intangibles": company.capex_includes_intangibles,
+        "company_notes": list(company.notes),
         "rows": rows, "revenue_cagr_pct": revenue_cagr(rows), "warnings": warnings, "data_notes": notes,
     }
 

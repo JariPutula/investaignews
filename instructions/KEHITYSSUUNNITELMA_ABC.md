@@ -4,6 +4,10 @@
 
 15.11.2026 | Projektiversio investaignews | Suunnitelma 3
 
+**Toteutuspäivitys 21.11.2026:** seuraavaksi tehdään 20 yhtiön laajentamisen sijaan Microsoftin ohjattua hinta- ja arvostusharjoitusta. Ensimmäinen harjoitus on toteutettu ja tallennettu: tekoälyn perustelemat oletukset, Pythonin FCFF-arvostus ja käänteinen kasvulaskelma sekä kysymysosio. Käyttäjän ei tarvitse itse muodostaa skenaarioita. Ohje ja olennaiset mallirajaukset: [MICROSOFT_HINTA_JA_ODOTUKSET.md](MICROSOFT_HINTA_JA_ODOTUKSET.md).
+
+**Toteutuspäivitys 20.11.2026:** C4:n 20 USA-yhtiön käyttökokeilu on toteutettu. Neljän tilikauden aineistot on tallennettu paikallisesti; 588 saatavilla olevaa lähtölukua on täsmäytetty alkuperäisiin raportteihin. Vertailussa on liiketoiminta-alueen rajaus ja kattavuusluettelo. Seuraavaksi käyttäjä kokeilee eri yhtiöitä, ja lisätiedot valitaan havaittujen tarpeiden mukaan ennen 50–100 yhtiön laajennusta. Ajantasainen ohje: [C4_20_YHTION_KOKEILU.md](C4_20_YHTION_KOKEILU.md). Alla olevat aiemmat rajaukset ja työarviot kuvaavat suunnitelman aikaisempia vaiheita.
+
 **Toteutuspäivitys 17.11.2026:** C2 on laajennettu Microsoftiin, Coca-Colaan, Amazoniin, NVIDIAan ja Procter & Gambleen. C3:n kassavirran muutoslaskelma ja yhden yhtiön lähteistetty tekoälyanalyysi on toteutettu. Amazonin ensimmäinen vuoden 2025 analyysi on tallennettu paikallisesti. Ajantasainen käyttöohje ja rajaukset: [C3_KASSAVIRTA_JA_TEKOALY.md](C3_KASSAVIRTA_JA_TEKOALY.md). Tämän suunnitelman aiemmat työmääräarviot ja 15.11.2026 PDF kuvaavat edeltävää suunnittelutilannetta.
 
 **Tavoite:** opetellaan sijoitusanalyysin laskelmia vähitellen ja rakennetaan samalla ymmärrettävä sovellus. Aloitetaan Microsoftin neljästä tilikaudesta ja kolmesta laskelmasta. Jokaisesta näytetään lähtöluvut, kaava, selitys ja lähde. USA:n yhtiöihin rajattu seula tulee mukaan vasta oppimispolun myöhemmässä vaiheessa.

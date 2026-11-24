@@ -9,6 +9,7 @@ from streamlit.testing.v1 import AppTest
 
 from tests.test_sec_companies import extract
 from market_data.companies import COMPANIES
+from learning import company_page
 
 
 PAGE = str(Path(__file__).resolve().parents[1] / "pages" / "01_Yhtioanalyysi.py")
@@ -23,11 +24,14 @@ def reports():
 
 
 def comparison_table(app):
-    return next(table.value for table in app.dataframe if "Tilikausi alkaa" in table.value.index)
+    return next(table.value for table in app.dataframe if "Tilikausi alkaa" in table.value.columns).set_index("Yhtiö").T
 
 
 class LearningPageTests(TestCase):
     def setUp(self):
+        pilot_patch = patch("market_data.pilot.load_report", side_effect=lambda **kwargs: company_page.load_report(**kwargs))
+        pilot_patch.start()
+        self.addCleanup(pilot_patch.stop)
         index_patch = patch("learning.analysis_page.list_saved_analyses", return_value=[])
         self.saved_index = index_patch.start()
         self.addCleanup(index_patch.stop)
@@ -147,7 +151,7 @@ class LearningPageTests(TestCase):
             comparison = comparison_table(app)
             self.assertEqual(comparison.loc["Tilikausi päättyy", "Microsoft"], "30.06.2025")
             self.assertEqual(comparison.loc["Tilikausi päättyy", "Coca-Cola"], "31.12.2025")
-            self.assertEqual(len(comparison.columns), 5)
+            self.assertEqual(len(comparison.columns), 20)
             app.multiselect(key="comparison_companies").set_value(["AMZN", "NVDA"]).run(timeout=30)
             self.assertFalse(app.exception)
             self.assertEqual(list(comparison_table(app).columns), ["Amazon", "NVIDIA"])
@@ -157,6 +161,45 @@ class LearningPageTests(TestCase):
             comparison = comparison_table(app)
             self.assertEqual(comparison.loc["Tilikausi päättyy", "Microsoft"], "30.06.2026")
             network.assert_not_called()
+
+    def test_sector_filter_selects_peers_and_keeps_numeric_sortable_comparison(self):
+        data = reports()
+        with patch("learning.company_page.load_report", side_effect=lambda *, company: deepcopy(data[company.ticker])), \
+             patch("market_data.sec.urlopen") as network, \
+             patch("learning.analysis_page.generate_analysis") as paid:
+            app = AppTest.from_file(PAGE).run(timeout=30)
+            app.selectbox(key="comparison_sector").set_value("Kauppa").run(timeout=30)
+            self.assertFalse(app.exception)
+            self.assertEqual(app.multiselect(key="comparison_companies").value, ["AMZN", "WMT", "COST"])
+            table = next(table.value for table in app.dataframe if "Tilikausi alkaa" in table.value.columns)
+            self.assertEqual(list(table["Yhtiö"]), ["Amazon", "Walmart", "Costco"])
+            self.assertEqual(table["Liikevaihto, milj. USD"].dtype.kind, "f")
+            app.selectbox(key="comparison_sector").set_value("Energia").run(timeout=30)
+            self.assertFalse(app.exception)
+            self.assertEqual(app.multiselect(key="comparison_companies").value, ["COP", "CVX"])
+            network.assert_not_called()
+            paid.assert_not_called()
+
+    def test_new_company_and_coverage_open_without_network_or_paid_calls(self):
+        data = reports()
+        data["NEE"]["rows"][-1]["capex"] = None
+        data["NEE"]["rows"][-1]["free_cash_flow"] = None
+        with patch("learning.company_page.load_report", side_effect=lambda *, company: deepcopy(data[company.ticker])), \
+             patch("market_data.sec.urlopen") as network, \
+             patch("learning.analysis_page.generate_analysis") as paid:
+            app = AppTest.from_file(PAGE).run(timeout=30)
+            app.session_state["pilot_universe"] = True
+            app.run(timeout=30)
+            table = next(table.value for table in app.dataframe if "Puuttuvat lähtöluvut" in table.value.columns)
+            self.assertEqual(len(table), 20)
+            nee = table.set_index("Tunnus").loc["NEE"]
+            self.assertIn("Käyttöomaisuusinvestoinnit", nee["Puuttuvat lähtöluvut"])
+            app.selectbox(key="learning_company").set_value("NEE").run(timeout=30)
+            self.assertFalse(app.exception)
+            values = {metric.label: metric.value for metric in app.metric}
+            self.assertEqual(values["Vapaa kassavirta, milj. USD"], "ei saatavilla")
+            network.assert_not_called()
+            paid.assert_not_called()
 
     def test_missing_optional_metrics_render_without_becoming_zero(self):
         data = reports()

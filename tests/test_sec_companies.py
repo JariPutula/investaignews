@@ -29,7 +29,12 @@ def payload_for(ticker):
             if not definition.get("instant"):
                 fact["start"] = start.isoformat()
             series.append(fact)
-        tag = company.capex_tags[0] if key == "capex" else definition["tags"][0]
+        override = {"revenue": company.revenue_tags, "capex": company.capex_tags,
+                    "net_income": company.net_income_tags, "cost_of_revenue": company.cost_of_revenue_tags}.get(key)
+        tags = definition["tags"] if override is None else override
+        if not tags:
+            continue
+        tag = tags[0]
         facts[tag] = {"units": {"USD": series}}
     return {"cik": company.cik, "entityName": company.name, "facts": {"us-gaap": facts}}
 
@@ -79,6 +84,49 @@ class AdditionalMetricTests(unittest.TestCase):
 
 
 class CompanyPeriodTests(unittest.TestCase):
+    def test_apple_and_costco_53_week_years_use_exact_reported_periods(self):
+        apple, costco = get_company("AAPL"), get_company("COST")
+        self.assertEqual(tuple(map(str, apple.period(2023))), ("2022-09-25", "2023-09-30"))
+        self.assertEqual(tuple(map(str, costco.period(2023))), ("2022-08-29", "2023-09-03"))
+        for company in (apple, costco):
+            start, end = company.period(2023)
+            self.assertEqual((end - start).days + 1, 371)
+            payload = payload_for(company.ticker)
+            tag = "RevenueFromContractWithCustomerExcludingAssessedTax"
+            series = payload["facts"]["us-gaap"][tag]["units"]["USD"]
+            annual = next(f for f in series if f["end"] == end.isoformat())
+            series.append({**annual, "start": "2023-06-01", "val": 999})
+            report = extract(company.ticker, payload)
+            row = next(r for r in report["rows"] if r["fiscal_year"] == 2023)
+            self.assertEqual(row["revenue"], 100_000_000)
+            self.assertEqual(row["period_start"], start.isoformat())
+
+    def test_walmart_and_energy_revenues_do_not_use_a_partial_customer_sales_line(self):
+        for ticker, tag in (("WMT", "Revenues"), ("COP", "Revenues"), ("NEE", "RegulatedAndUnregulatedOperatingRevenue")):
+            with self.subTest(ticker=ticker):
+                payload = payload_for(ticker)
+                series = payload["facts"]["us-gaap"][tag]["units"]["USD"]
+                payload["facts"]["us-gaap"]["RevenueFromContractWithCustomerExcludingAssessedTax"] = {
+                    "units": {"USD": [{**f, "val": 90_000_000} for f in series]}}
+                row = extract(ticker, payload)["rows"][-1]
+                self.assertEqual(row["revenue"], 100_000_000)
+                self.assertEqual(row["sources"]["revenue"]["tag"], tag)
+
+    def test_partial_commodity_costs_are_not_used_for_gross_margin(self):
+        for ticker in ("COP", "CVX", "CAT"):
+            payload = payload_for(ticker)
+            template = payload["facts"]["us-gaap"]["NetCashProvidedByUsedInOperatingActivities"]["units"]["USD"]
+            payload["facts"]["us-gaap"]["CostOfRevenue"] = {"units": {"USD": [{**f, "val": 10_000_000} for f in template]}}
+            row = extract(ticker, payload)["rows"][-1]
+            self.assertIsNone(row["gross_margin_pct"])
+            self.assertNotIn("cost_of_revenue", row["sources"])
+
+    def test_missing_parent_income_is_not_replaced_with_income_including_minorities(self):
+        payload = payload_for("MA")
+        series = payload["facts"]["us-gaap"].pop("NetIncomeLoss")["units"]["USD"]
+        payload["facts"]["us-gaap"]["ProfitLoss"] = {"units": {"USD": series}}
+        self.assertIsNone(extract("MA", payload)["rows"][-1]["net_margin_pct"])
+
     def test_nvidia_52_and_53_week_years_and_actual_end_dates(self):
         company = get_company("NVDA")
         self.assertEqual(tuple(map(str, company.period(2025))), ("2024-01-29", "2025-01-26"))

@@ -29,7 +29,7 @@ GUIDE: dict[str, MetricGuide] = {
     },
     "free_cash_flow": {
         "label": "Vapaa kassavirta", "unit": "usd_m", "inputs": ("operating_cash_flow", "capex"),
-        "meaning": "Liiketoiminnan rahavirrasta jäävä määrä käyttöomaisuusinvestointien jälkeen. Laskemme tämän itse raportoiduista luvuista. NVIDIAn raportoitu investointirivi sisältää myös aineettomia hyödykkeitä.",
+        "meaning": "Liiketoiminnan rahavirrasta jäävä määrä käyttöomaisuusinvestointien jälkeen. Laskemme tämän itse raportoiduista luvuista. Joidenkin yhtiöiden investointirivi sisältää myös teknologiaa tai aineettomia hyödykkeitä; rajaus kerrotaan erikseen.",
         "formula": "liiketoiminnan rahavirta − käyttöomaisuusinvestointien rahamenot (yhtiökohtainen rajaus näkyy näkymässä)",
         "assessment": "Tutki useita vuosia ja muutoksen syitä. Suuri kasvua rakentava investointi voi pienentää tämän vuoden vapaata kassavirtaa.",
         "limit": "Tämä määritelmä ei automaattisesti vähennä yritysostoja tai rahoitusleasingin lyhennyksiä. Yritysostoon liittyvä maksu voi myös sisältyä jo liiketoiminnan rahavirtaan. Luku ei ole sama kuin voitto tai jaettavissa oleva osinko.",
@@ -57,7 +57,7 @@ GUIDE: dict[str, MetricGuide] = {
     },
     "capex_to_revenue_pct": {
         "label": "Investointiaste", "unit": "pct", "inputs": ("capex", "revenue"),
-        "meaning": "Käyttöomaisuusinvestointeihin käytetty rahamäärä suhteessa myyntiin. Nämä voivat olla esimerkiksi datakeskuksia, koneita tai rakennuksia. NVIDIAn rivi sisältää myös aineettomia hyödykkeitä.",
+        "meaning": "Käyttöomaisuusinvestointeihin käytetty rahamäärä suhteessa myyntiin. Nämä voivat olla esimerkiksi datakeskuksia, koneita tai rakennuksia. Raportin rivi voi sisältää myös teknologiaa tai aineettomia hyödykkeitä; yhtiökohtainen rajaus kerrotaan erikseen.",
         "formula": "käyttöomaisuusinvestointien rahamenot / liikevaihto × 100",
         "assessment": "Nouseva osuus kertoo kasvavasta investointipanoksesta suhteessa myyntiin. Selvitä, rakennetaanko kasvua vai ylläpidetäänkö nykyistä toimintaa.",
         "limit": "Korkea arvo ei yksin ole huono eikä matala arvo hyvä. Liiketoimintamallit eroavat. Tämä ei kata kaikkia investointeja, kuten tutkimuskuluja, yritysostoja tai leasingillä hankittua kapasiteettia.",

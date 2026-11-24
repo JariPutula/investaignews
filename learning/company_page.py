@@ -10,8 +10,9 @@ import plotly.express as px
 import streamlit as st
 
 from learning.metric_guide import COMPANY_CASH_NOTES, CONTEXT, GUIDE, KO_REPORT
-from market_data.companies import COMPANIES, get_company
+from market_data.companies import COMPANIES, UNIVERSE_DATE, get_company
 from market_data.financial_metrics import cash_flow_bridge
+from market_data.pilot import coverage_rows, fetch_missing_reports, load_pilot
 from market_data.sec import METRICS, SecDataError, build_report, comparison_rows, load_report
 
 
@@ -93,22 +94,24 @@ def calculation(key, row, previous=None):
 def show_comparison():
     st.subheader("Yhtiöt rinnakkain")
     st.write("Vertaa ensisijaisesti kehitystä ja liiketoimintamallia. Yksi korkeampi tunnusluku ei tee yrityksestä parempaa sijoitusta.")
-    reports = []
-    for company in COMPANIES.values():
-        try:
-            report = load_report(company=company)
-            if report is not None:
-                reports.append(report)
-            else:
-                st.info(f"{company.name}: hae aineisto yhtiön omasta näkymästä.")
-        except SecDataError as exc:
-            st.warning(f"{company.name}: {exc}")
+    pilot, issues = load_pilot()
+    reports = list(pilot.values())
+    if issues:
+        st.caption("Vertailusta puuttuvat: " + ", ".join(COMPANIES[ticker].name for ticker in issues)
+                   + ". Aineiston tilanteen näet sivun alun yhtiöluettelosta.")
     if len(reports) < 2:
         st.info("Rinnakkainen vertailu tulee näkyviin, kun vähintään kahden yhtiön aineisto on tallennettu.")
         return
+    sector = st.selectbox("Rajaa liiketoiminta-alueeseen", ["Kaikki"] + sorted({COMPANIES[report["ticker"]].sector for report in reports}), key="comparison_sector")
+    reports = [report for report in reports if sector == "Kaikki" or COMPANIES[report["ticker"]].sector == sector]
     tickers = [report["ticker"] for report in reports]
-    selected = st.multiselect("Vertailtavat yhtiöt", tickers, default=tickers,
-                             format_func=lambda ticker: COMPANIES[ticker].name, key="comparison_companies")
+    if st.session_state.get("comparison_previous_sector") != sector or "comparison_companies" not in st.session_state:
+        st.session_state["comparison_companies"] = tickers
+        st.session_state["comparison_previous_sector"] = sector
+    elif "comparison_companies" in st.session_state:
+        st.session_state["comparison_companies"] = [ticker for ticker in st.session_state["comparison_companies"] if ticker in tickers]
+    selected = st.multiselect("Vertailtavat yhtiöt", tickers,
+                             format_func=lambda ticker: COMPANIES[ticker].name, key="comparison_companies", wrap=False)
     reports = [report for report in reports if report["ticker"] in selected]
     if len(reports) < 2:
         st.info("Valitse vähintään kaksi yhtiötä vertailuun.")
@@ -122,23 +125,27 @@ def show_comparison():
             return
         selected_year = st.selectbox("Vertailuvuosi", common_years, index=len(common_years)-1, key="comparison_year")
     compared = comparison_rows(reports, selected_year)
-    st.info("Microsoftin ja P&G:n tilikausi päättyy kesäkuussa, Amazonin ja Coca-Colan joulukuussa ja NVIDIAn tammikuun viimeisenä sunnuntaina. Sama vuosiluku ei tarkoita samaa ajanjaksoa. Tarkat jaksot näkyvät taulukossa.")
+    st.info("Sama tilikauden päättymisvuosi ei tarkoita samaa ajanjaksoa. Esimerkiksi Walmartin tilikausi päättyy tammikuussa ja Applen syyskuun viimeisenä lauantaina. Tarkat jaksot näkyvät taulukossa.")
     with st.popover("Miksi tilikausien ero on tärkeä?"):
         st.write("Eri tilikaudet voivat sisältää erilaisen taloussuhdanteen, valuuttakurssit ja tapahtumat. Viimeisimpien tilikausien vertailussa myös vuosiluvut voivat erota. Tässä ei muodosteta yhteisen kalenterijakson osavuosilaskelmaa.")
-    columns = {}
+    table = []
     comparison_keys = ("revenue_growth_pct", "operating_margin_pct", "gross_margin_pct", "net_margin_pct", "operating_cash_flow_margin_pct", "fcf_margin_pct", "capex_to_revenue_pct", "cash_conversion_ratio", "current_ratio")
     for item in compared:
         column = {
+            "Yhtiö": item["company"],
+            "Liiketoiminta-alue": COMPANIES[item["ticker"]].sector,
+            "Tilikausi": item["fiscal_year"],
             "Tilikausi alkaa": display_date(item["period_start"]),
             "Tilikausi päättyy": display_date(item["period_end"]),
-            "Liikevaihto, milj. USD": format_value(item["revenue"]),
-            "Liiketoiminnan rahavirta, milj. USD": format_value(item["operating_cash_flow"]),
-            "Käyttöomaisuusinvestoinnit, milj. USD": format_value(item["capex"]),
-            "Vapaa kassavirta, milj. USD": format_value(item["free_cash_flow"]),
+            **{label: item[key] / 1e6 if item.get(key) is not None else None for key, label in (
+                ("revenue", "Liikevaihto, milj. USD"), ("operating_cash_flow", "Liiketoiminnan rahavirta, milj. USD"),
+                ("capex", "Käyttöomaisuusinvestoinnit, milj. USD"), ("free_cash_flow", "Vapaa kassavirta, milj. USD"))},
         }
-        column.update({GUIDE[key]["label"]: format_value(item.get(key), GUIDE[key]["unit"]) for key in comparison_keys})
-        columns[item["company"]] = column
-    st.dataframe(pd.DataFrame(columns), width="stretch", key="company_comparison_table")
+        column.update({GUIDE[key]["label"] + (", %" if GUIDE[key]["unit"] == "pct" else ", ×"): item.get(key) for key in comparison_keys})
+        table.append(column)
+    st.dataframe(pd.DataFrame(table), hide_index=True, width="stretch", key="company_comparison_table",
+                 alt="Valittujen yhtiöiden vuosiluvut ja tunnusluvut tilikausineen")
+    st.caption("Yhtiöt ovat riveillä. Voit järjestää luvut sarakeotsikosta; puuttuva arvo näkyy viivana. Liiketoiminta-alueet ovat karkeita ryhmiä, eivät tarkka toimialaluokitus tai paremmuusjärjestys.")
     for item in compared:
         st.caption(f"{item['company']}: julkaistut tiedot huomioitu päivään {display_date(item['as_of'])} asti.")
         note = CONTEXT.get((item["ticker"], item["fiscal_year"]))
@@ -175,10 +182,28 @@ def show_cash_flow_bridge(row, previous):
 
 def render():
     st.set_page_config(page_title="Yhtiöanalyysi – opi talousluvut", page_icon="📖", layout="wide")
+    if st.session_state.get("microsoft_exercise_open"):
+        if st.button("Takaisin yhtiöanalyysiin", key="close_msft_exercise"):
+            st.session_state["microsoft_exercise_open"] = False
+            st.rerun()
+        from learning.microsoft_exercise_page import show_exercise
+        show_exercise()
+        return
     st.title("Yhtiöanalyysi")
+    if st.button("Microsoft: hinta ja odotukset — avaa harjoitus", key="open_msft_exercise", icon=":material/school:"):
+        st.session_state["microsoft_exercise_open"] = True
+        st.rerun()
     st.write("Opettele kasvua, kannattavuutta ja rahavirtaa. Aloita kolmesta perusluvusta; tarkemmat selitykset avautuvat Tietoa-painikkeista.")
     from learning.analysis_page import show_saved_analysis_shortcuts
     show_saved_analysis_shortcuts()
+    st.caption(f"{len(COMPANIES)} USA-yhtiön kokeilu · yhtiölista {display_date(UNIVERSE_DATE)}. Aloita yhdestä tutusta yhtiöstä tai vertaa saman liiketoiminta-alueen yrityksiä.")
+    universe = st.expander("Yhtiöluettelo ja aineiston kattavuus", key="pilot_universe", on_change="rerun")
+    if universe.open:
+        with universe:
+            pilot, issues = load_pilot()
+            st.dataframe(pd.DataFrame(coverage_rows(pilot, issues)), hide_index=True, width="stretch",
+                         key="pilot_coverage", alt="Kokeilun yhtiöt, liiketoiminta-alueet ja puuttuvat taloustiedot")
+            st.caption("Saatavuus ei tarkoita, että kaikki luvut olisivat keskenään vertailukelpoisia. Ryhmä on oppimista varten valittu joukko, ei ostolista. Pankit ja vakuutusyhtiöt eivät kuulu tähän kokeiluun.")
     ticker = st.selectbox("Yhtiö", list(COMPANIES), format_func=lambda key: f"{COMPANIES[key].name} ({key})", key="learning_company")
     company = get_company(ticker)
     with st.expander("Hae tai päivitä aineisto"):
@@ -192,6 +217,15 @@ def render():
                 st.success("Vuosiluvut ja lähteet tallennettu.")
             except (SecDataError, OSError) as exc:
                 st.error(str(exc))
+        st.caption("Voit hakea myös koko kokeilujoukon puuttuvat vuosiluvut kerralla. Jo tallennetut yhteenvedot säilyvät. Tämä ei laadi tekoälyanalyysejä.")
+        if st.button("Hae puuttuvien yhtiöiden vuosiluvut", key="fetch_missing_pilot"):
+            agent = f"InvestaiLearning {contact.strip()}" if contact.strip() else os.getenv("SEC_USER_AGENT", "")
+            progress = st.progress(0, text="Tarkistetaan paikallinen aineisto…")
+            loaded, failures = fetch_missing_reports(agent, on_progress=lambda done, total, name: progress.progress(done / total, text=f"{done}/{total}: {name}"))
+            progress.empty()
+            st.success(f"Vuosiluvut saatavilla: {len(loaded)}/{len(COMPANIES)} yhtiötä.")
+            for failed, message in failures.items():
+                st.warning(f"{COMPANIES[failed].name}: {message}")
     try:
         report = load_report(company=company)
     except SecDataError as exc:
@@ -208,6 +242,8 @@ def render():
     index = rows.index(row)
     previous = rows[index-1] if index else None
     st.caption(f"{company.name} · tilikausi {display_date(row['period_start'])}–{display_date(row['period_end'])} · aineisto haettu {display_time(report['retrieved_at'])} · julkaistut tiedot päivään {display_date(report['as_of'])} asti.")
+    for note in report.get("company_notes", []):
+        st.info(note)
     for warning in report["warnings"]:
         st.warning(warning)
     columns = st.columns(3)
@@ -245,7 +281,7 @@ def render():
             metric_card(container, key, row, f"cash_{ticker}_{year}")
         cash_frame = frame[["operating_cash_flow", "capex", "free_cash_flow"]].rename(columns={"operating_cash_flow": "Liiketoiminnan rahavirta", "capex": "Investoinnit", "free_cash_flow": "Vapaa kassavirta"}) / 1e6
         st.bar_chart(cash_frame, stack=False)
-        st.caption("Miljoonaa USD. Investoinnit ovat käyttöomaisuusostojen rahamenoja; NVIDIAn rivi sisältää myös aineettomia hyödykkeitä.")
+        st.caption("Miljoonaa USD. Investoinnit ovat raportin rahamenoja. Yhtiökohtaiset rajaukset näkyvät huomioissa; puuttuva investointirivi estää vapaan kassavirran laskennan.")
         if ticker in COMPANY_CASH_NOTES:
             st.info(COMPANY_CASH_NOTES[ticker])
             show_sources(row, ["capex"])

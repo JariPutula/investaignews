@@ -174,6 +174,8 @@ def make_company_packet(report, row, annual):
     packet["sources"]["D_balance"]["text"] += " Maksuvalmius kattaa vain lyhytaikaiset varat ja velat. Kokonaisvelat ja omavaraisuusaste eivät sisälly aineistoon."
     note = COMPANY_CASH_NOTES.get(report["ticker"], "") + " " + CONTEXT.get((report["ticker"], row["fiscal_year"]), "")
     packet["sources"]["D_cash_flow"]["text"] += " " + packet["definition"] + " " + note.strip()
+    if report.get("company_notes"):
+        packet["sources"]["D_company"] = {"text": "Yhtiön tietojen rajaukset: " + " ".join(report["company_notes"]), "url": report["source_url"]}
     return packet
 
 

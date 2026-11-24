@@ -32,3 +32,6 @@ data/research/
 # Local C3 verification artifacts and one-off API smoke check
 tmp/c3/
 tmp/verify_c3_sources.py
+tmp/c4/
+tmp/msft/
+.streamlit/local_preferences.json
